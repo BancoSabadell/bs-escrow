@@ -4,7 +4,7 @@
   "description": "Escrow contract",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha --recursive"
   },
   "repository": {
     "type": "git",
@@ -20,5 +20,42 @@
   "bugs": {
     "url": "https://github.com/BancoSabadell/bs-escrow/issues"
   },
-  "homepage": "https://github.com/BancoSabadell/bs-escrow#readme"
+  "homepage": "https://github.com/BancoSabadell/bs-escrow#readme",
+  "dependencies": {
+    "bluebird": "^3.4.6"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "chai-as-promised": "^6.0.0",
+    "eslint": "^3.12.2",
+    "ethereumjs-testrpc": "^3.0.2",
+    "mocha": "^3.1.2",
+    "mocha-eslint": "^3.0.1",
+    "supertest": "^2.0.1",
+    "supertest-as-promised": "^4.0.1",
+    "eslint-config-airbnb-base": "^11.0.0",
+    "eslint-plugin-import": "^2.2.0",
+    "smart-contract-deployer": "git+https://a57c26aca1254beb929ba38251940f77a8ab4d2e:x-oauth-basic@github.com/BancoSabadell/smart-contract-deployer.git",
+    "bs-token": "git+https://a57c26aca1254beb929ba38251940f77a8ab4d2e:x-oauth-basic@github.com/BancoSabadell/bs-token.git"
+  },
+  "eslintConfig": {
+    "env": {
+      "node": true
+    },
+    "parserOptions": {
+      "ecmaVersion": 6,
+      "sourceType": "script"
+    },
+    "rules": {
+      "no-unused-vars": [
+        "error",
+        {
+          "argsIgnorePattern": "^_"
+        }
+      ],
+      "indent": ["error", 4],
+      "comma-dangle": ["error", { "functions": "ignore" }]
+    },
+    "extends": "airbnb-base"
+  }
 }
