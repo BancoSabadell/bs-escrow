@@ -31,8 +31,6 @@
     "ethereumjs-testrpc": "^3.0.2",
     "mocha": "^3.1.2",
     "mocha-eslint": "^3.0.1",
-    "supertest": "^2.0.1",
-    "supertest-as-promised": "^4.0.1",
     "eslint-config-airbnb-base": "^11.0.0",
     "eslint-plugin-import": "^2.2.0",
     "smart-contract-deployer": "git+https://a57c26aca1254beb929ba38251940f77a8ab4d2e:x-oauth-basic@github.com/BancoSabadell/smart-contract-deployer.git",
