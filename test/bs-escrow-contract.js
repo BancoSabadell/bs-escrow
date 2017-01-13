@@ -43,10 +43,11 @@ describe('escrow', function () {
         });
 
         it('deploy dependent contracts', () => {
+
             const sources = {
-                'TokenRecipient.sol': fs.readFileSync('./contracts/TokenRecipient.sol', 'utf8'),
-                'Ownable.sol': fs.readFileSync('./contracts/Ownable.sol', 'utf8'),
-                'BSToken.sol': fs.readFileSync('./contracts/BSToken.sol', 'utf8')
+                'TokenRecipient.sol': fs.readFileSync('./node_modules/bs-token/contracts/TokenRecipient.sol', 'utf8'),
+                'Ownable.sol': fs.readFileSync('./node_modules/bs-token/contracts/Ownable.sol', 'utf8'),
+                'BSToken.sol': fs.readFileSync('./node_modules/bs-token/contracts/BSToken.sol', 'utf8')
             }
 
             const paramsConstructor = {'BSToken': [0, 'BSToken', 0, 'BS']};
@@ -65,9 +66,9 @@ describe('escrow', function () {
 
         it('deploy contract Escrow', () => {
             const sources = {
-                'TokenRecipient.sol': fs.readFileSync('./contracts/TokenRecipient.sol', 'utf8'),
-                'Ownable.sol': fs.readFileSync('./contracts/Ownable.sol', 'utf8'),
-                'BSToken.sol': fs.readFileSync('./contracts/BSToken.sol', 'utf8'),
+                'TokenRecipient.sol': fs.readFileSync('./node_modules/bs-token/contracts/TokenRecipient.sol', 'utf8'),
+                'Ownable.sol': fs.readFileSync('./node_modules/bs-token/contracts/Ownable.sol', 'utf8'),
+                'BSToken.sol': fs.readFileSync('./node_modules/bs-token/contracts/BSToken.sol', 'utf8'),
                 'Escrow.sol': fs.readFileSync('./contracts/Escrow.sol', 'utf8')
             }
 
