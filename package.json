@@ -1,0 +1,24 @@
+{
+  "name": "bs-escrow",
+  "version": "0.0.1",
+  "description": "Escrow contract",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BancoSabadell/bs-escrow.git"
+  },
+  "keywords": [
+    "escrow",
+    "ethereum",
+    "token"
+  ],
+  "author": "Jose Luis Piedrahita <jlpiedrahita@gmail.com>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/BancoSabadell/bs-escrow/issues"
+  },
+  "homepage": "https://github.com/BancoSabadell/bs-escrow#readme"
+}
