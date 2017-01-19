@@ -5,6 +5,8 @@ const fs = require('fs');
 const TestRPC = require('ethereumjs-testrpc');
 const Web3 = require('web3');
 const web3 = new Web3(TestRPC.provider());
+const BSToken = require('bs-token');
+const Escrow = require('../src/lib');
 const Promise = require('bluebird');
 const chai = require('chai');
 const chaiAsPromised = require('chai-as-promised');
@@ -43,13 +45,6 @@ describe('escrow', function () {
         });
 
         it('deploy dependent contracts', () => {
-
-            const sources = {
-                'TokenRecipient.sol': fs.readFileSync('./node_modules/bs-token/contracts/TokenRecipient.sol', 'utf8'),
-                'Ownable.sol': fs.readFileSync('./node_modules/bs-token/contracts/Ownable.sol', 'utf8'),
-                'BSToken.sol': fs.readFileSync('./node_modules/bs-token/contracts/BSToken.sol', 'utf8')
-            }
-
             const paramsConstructor = {'BSToken': [0, 'BSToken', 0, 'BS']};
 
             const deployer = new Deployer({
@@ -58,19 +53,14 @@ describe('escrow', function () {
                 gas: 3000000
             });
 
-            return deployer.deployContracts(sources, paramsConstructor, ['BSToken']).then(contracts => {
+            return deployer.deployContracts(BSToken.contracts, paramsConstructor, ['BSToken']).then(contracts => {
                 token = web3.eth.contract(contracts.BSToken.abi).at(contracts.BSToken.address);
                 Promise.promisifyAll(token);
             });
         }).timeout(20000);
 
         it('deploy contract Escrow', () => {
-            const sources = {
-                'TokenRecipient.sol': fs.readFileSync('./node_modules/bs-token/contracts/TokenRecipient.sol', 'utf8'),
-                'Ownable.sol': fs.readFileSync('./node_modules/bs-token/contracts/Ownable.sol', 'utf8'),
-                'BSToken.sol': fs.readFileSync('./node_modules/bs-token/contracts/BSToken.sol', 'utf8'),
-                'Escrow.sol': fs.readFileSync('./contracts/Escrow.sol', 'utf8')
-            }
+            const contracts = Object.assign(BSToken.contracts, Escrow.contracts);
 
             const paramsConstructor = {'Escrow': [token.address]};
 
@@ -80,7 +70,7 @@ describe('escrow', function () {
                 gas: 3000000
             });
 
-            return deployer.deployContracts(sources, paramsConstructor, ['Escrow']).then(contracts => {
+            return deployer.deployContracts(contracts, paramsConstructor, ['Escrow']).then(contracts => {
                 escrow = web3.eth.contract(contracts.Escrow.abi).at(contracts.Escrow.address);
                 Promise.promisifyAll(escrow);
             });
