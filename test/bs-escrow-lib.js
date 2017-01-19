@@ -41,12 +41,6 @@ describe('Escrow lib', () => {
         });
 
         it('deploy dependent contracts', () => {
-            const sources = {
-                'TokenRecipient.sol': fs.readFileSync('./contracts/TokenRecipient.sol', 'utf8'),
-                'Ownable.sol': fs.readFileSync('./contracts/Ownable.sol', 'utf8'),
-                'BSToken.sol': fs.readFileSync('./contracts/BSToken.sol', 'utf8')
-            };
-
             const paramsConstructor = {'BSToken': [0, 'BSToken', 0, 'BS']};
 
             const deployer = new Deployer({
@@ -55,7 +49,7 @@ describe('Escrow lib', () => {
                 gas: 3000000
             });
 
-            return deployer.deployContracts(sources, paramsConstructor, ['BSToken']).then(contracts => {
+            return deployer.deployContracts(BSToken.contracts, paramsConstructor, ['BSToken']).then(contracts => {
                 token = new BSToken(web3, {
                     admin: {
                         account: admin,
@@ -73,12 +67,7 @@ describe('Escrow lib', () => {
         }).timeout(20000);
 
         it('deploy contract Escrow', () => {
-            const sources = {
-                'TokenRecipient.sol': fs.readFileSync('./contracts/TokenRecipient.sol', 'utf8'),
-                'Ownable.sol': fs.readFileSync('./contracts/Ownable.sol', 'utf8'),
-                'BSToken.sol': fs.readFileSync('./contracts/BSToken.sol', 'utf8'),
-                'Escrow.sol': fs.readFileSync('./contracts/Escrow.sol', 'utf8')
-            }
+            const contracts = Object.assign(BSToken.contracts, Escrow.contracts);
 
             const paramsConstructor = {'Escrow': [token.contract.address]};
 
@@ -88,7 +77,7 @@ describe('Escrow lib', () => {
                 gas: 3000000
             });
 
-            return deployer.deployContracts(sources, paramsConstructor, ['Escrow']).then(contracts => {
+            return deployer.deployContracts(contracts, paramsConstructor, ['Escrow']).then(contracts => {
                 escrow = new Escrow(web3, token, {
                     admin: {
                         account: admin,

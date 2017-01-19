@@ -1,5 +1,6 @@
 'use strict';
 
+const fs = require('fs');
 const Promise = require('bluebird');
 
 const NULL_ETHEREUM_ADDRESS = '0x0000000000000000000000000000000000000000';
@@ -144,3 +145,6 @@ class Escrow {
 }
 
 module.exports = Escrow;
+module.exports.contracts = {
+    'Escrow.sol': fs.readFileSync('./contracts/Escrow.sol', 'utf8')
+};
