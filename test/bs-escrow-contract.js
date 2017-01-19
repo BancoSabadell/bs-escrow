@@ -761,4 +761,34 @@ describe('escrow', function () {
             }).should.eventually.be.rejected;
         });
     });
+
+    describe('transferOwnership', () => {
+        it('should be rejected if the account is not the owner', () => {
+            const promise = token.transferOwnershipAsync(buyer, {
+                from: seller,
+                gas: 3000000
+            });
+
+            return promise.should.eventually.be.rejected
+        });
+
+        it('check owner remains the same', () => {
+            return token.getOwnerAsync().then(expected => {
+                assert.equal(expected.valueOf(), admin);
+            });
+        });
+
+        it('should be fulfilled', () => {
+            return token.transferOwnershipAsync(buyer, {
+                from: admin,
+                gas: 3000000
+            });
+        });
+
+        it('check owner has been updated', () => {
+            return token.getOwnerAsync().then(expected => {
+                assert.equal(expected.valueOf(), buyer);
+            });
+        });
+    });
 });
