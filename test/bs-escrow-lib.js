@@ -421,4 +421,18 @@ describe('Escrow lib', () => {
                 .should.eventually.be.rejectedWith('This escrow has not a proposal cancellation which has been rejected');
         });
     });
+
+    describe('transferOwnership', () => {
+        it('check owner', () => {
+            return escrow.getOwner().should.eventually.include({owner: admin});
+        });
+
+        it('should be fulfilled', () => {
+            return escrow.transferOwnership(buyer);
+        });
+
+        it('check owner after', () => {
+            return escrow.getOwner().should.eventually.include({owner: buyer});
+        });
+    });
 });

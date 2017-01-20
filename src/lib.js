@@ -29,8 +29,29 @@ class Escrow {
         return this.web3.isAddress(candidate);
     }
 
+    unlockAdminAccount() {
+        return this.web3.personal.unlockAccountAsync(
+            this.config.admin.account,
+            this.config.admin.password
+        );
+    }
+
     unlockAccount(account, password) {
         return this.web3.personal.unlockAccountAsync(account, password);
+    }
+
+    transferOwnership(target) {
+        return this.unlockAdminAccount()
+            .then(() => this.contract.transferOwnershipAsync(target, {
+                from: this.config.admin.account,
+                gas: 3000000
+            }))
+            .then(tx => ({ tx }));
+    }
+
+    getOwner() {
+        return this.contract.getOwnerAsync()
+            .then(owner => ({ owner }));
     }
 
     createEscrow(buyer, buyerPass, seller, assetPrice, assetId) {
