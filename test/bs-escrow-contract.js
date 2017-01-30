@@ -4,7 +4,6 @@ const Deployer = require('smart-contract-deployer');
 const fs = require('fs');
 const TestRPC = require('ethereumjs-testrpc');
 const Web3 = require('web3');
-const web3 = new Web3(TestRPC.provider());
 const BSToken = require('bs-token');
 const Escrow = require('../src/lib');
 const Promise = require('bluebird');
@@ -14,6 +13,28 @@ const chaiAsPromised = require('chai-as-promised');
 const assert = chai.assert;
 chai.use(chaiAsPromised);
 chai.should();
+
+const provider = TestRPC.provider({
+    accounts: [{
+        index: 0,
+        secretKey: '0x998c22e6ab1959d6ac7777f12d583cc27d6fb442c51770125ab9246cb549db80',
+        balance: 200000000
+    }, {
+        index: 1,
+        secretKey: '0x998c22e6ab1959d6ac7777f12d583cc27d6fb442c51770125ab9246cb549db81',
+        balance: 200000000
+    }, {
+        index: 2,
+        secretKey: '0x998c22e6ab1959d6ac7777f12d583cc27d6fb442c51770125ab9246cb549db82',
+        balance: 200000000
+    }, {
+        index: 3,
+        secretKey: '0x998c22e6ab1959d6ac7777f12d583cc27d6fb442c51770125ab9246cb549db83',
+        balance: 200000000
+    }]
+});
+
+const web3 = new Web3(provider);
 
 Promise.promisifyAll(web3.eth);
 Promise.promisifyAll(web3.personal);
@@ -26,71 +47,45 @@ describe('escrow', function () {
     const assetId5 = '5';
     const bankAccount = 'g4yr4ruenir4nueicj';
     const assetPrice = 400;
+    const admin = '0x5bd47e61fbbf9c8b70372b6f14b068fddbd834ac';
+    const buyer = '0x25e940685e0999d4aa7bd629d739c6a04e625761';
+    const seller = '0x6128333118cef876bd620da1efa464437470298d';
     var token = null;
+    var tokenData = null;
     var escrow = null;
-    var admin = null;
-    var buyer = null;
-    var seller = null;
-    var someOne = null;
 
-    describe('preconditions', () => {
-        it('populate admin, seller and buyer accounts', () => {
-            return web3.eth.getAccountsAsync()
-                .then(accounts => {
-                    admin = accounts[0];
-                    buyer = accounts[1];
-                    seller = accounts[2];
-                    someOne = accounts[3];
+    before(function() {
+        this.timeout(60000);
+
+        return BSToken.deploy(web3, admin, admin, 3000000)
+            .then(deployment => {
+                token = deployment.bsTokenFrontend;
+                tokenData = deployment.bsTokenData;
+
+                const contracts = Object.assign(BSToken.contracts, Escrow.contracts);
+                const paramsConstructor = {'Escrow': [token.address]};
+
+                const deployer = new Deployer({
+                    web3: web3,
+                    address: admin,
+                    gas: 3000000
                 });
-        });
 
-        it('deploy dependent contracts', () => {
-            const paramsConstructor = {'BSToken': [0, 'BSToken', 0, 'BS']};
-
-            const deployer = new Deployer({
-                web3: web3,
-                address: admin,
-                gas: 3000000
+                return deployer.deployContracts(contracts, paramsConstructor, ['Escrow']).then(contracts => {
+                    escrow = web3.eth.contract(contracts.Escrow.abi).at(contracts.Escrow.address);
+                    Promise.promisifyAll(escrow);
+                });
             });
-
-            return deployer.deployContracts(BSToken.contracts, paramsConstructor, ['BSToken']).then(contracts => {
-                token = web3.eth.contract(contracts.BSToken.abi).at(contracts.BSToken.address);
-                Promise.promisifyAll(token);
-            });
-        }).timeout(20000);
-
-        it('deploy contract Escrow', () => {
-            const contracts = Object.assign(BSToken.contracts, Escrow.contracts);
-
-            const paramsConstructor = {'Escrow': [token.address]};
-
-            const deployer = new Deployer({
-                web3: web3,
-                address: admin,
-                gas: 3000000
-            });
-
-            return deployer.deployContracts(contracts, paramsConstructor, ['Escrow']).then(contracts => {
-                escrow = web3.eth.contract(contracts.Escrow.abi).at(contracts.Escrow.address);
-                Promise.promisifyAll(escrow);
-            });
-        }).timeout(20000);
     });
 
     describe('create escrow calling tokens.approveAndCall', () => {
-        it('should be rejected if there is not enough funds', () => {
-            const promise = token.approveAndCallAsync(escrow.address, seller, assetId1, assetPrice, {
-                from: buyer,
-                gas: 3000000
-            });
-
-            return promise.should.eventually.be.rejected
+        it('add cash to buyer', () => {
+            return cashIn(buyer, assetPrice);
         });
 
-        it('add cash to buyer', () => {
-            return token.cashInAsync(buyer, assetPrice, {
-                from: admin,
-                gas: 3000000
+        it('check balance buyer', () => {
+            return token.balanceOfAsync(buyer).then(expected => {
+                assert.equal(expected.valueOf(), assetPrice);
             });
         });
 
@@ -126,8 +121,8 @@ describe('escrow', function () {
             });
         });
 
-        it('activate stopInEmergency', () => {
-            return token.emergencyStopAsync({
+        it('start emergency', () => {
+            return token.startEmergencyAsync({
                 from: admin,
                 gas: 3000000
             });
@@ -142,8 +137,8 @@ describe('escrow', function () {
             return promise.should.eventually.be.rejected
         });
 
-        it('deactivate stopInEmergency', () => {
-            return token.releaseAsync({
+        it('stop emergency', () => {
+            return token.stopEmergencyAsync({
                 from: admin,
                 gas: 3000000
             });
@@ -187,10 +182,7 @@ describe('escrow', function () {
         });
 
         it('add cash to buyer', () => {
-            return token.cashInAsync(buyer, assetPrice, {
-                from: admin,
-                gas: 3000000
-            });
+            return cashIn(buyer, assetPrice);
         });
 
         it('check balance buyer', () => {
@@ -306,9 +298,8 @@ describe('escrow', function () {
             }).should.eventually.be.rejected;
         });
 
-
-        it('activate stopInEmergency', () => {
-            return escrow.emergencyStopAsync({
+        it('start emergency', () => {
+            return token.startEmergencyAsync({
                 from: admin,
                 gas: 3000000
             });
@@ -322,8 +313,8 @@ describe('escrow', function () {
             return promise.should.eventually.be.rejected
         });
 
-        it('deactivate stopInEmergency', () => {
-            return escrow.releaseAsync({
+        it('stop emergency', () => {
+            return token.stopEmergencyAsync({
                 from: admin,
                 gas: 3000000
             });
@@ -445,8 +436,8 @@ describe('escrow', function () {
             }).should.eventually.be.rejected;
         });
 
-        it('activate stopInEmergency', () => {
-            return escrow.emergencyStopAsync({
+        it('start emergency', () => {
+            return token.startEmergencyAsync({
                 from: admin,
                 gas: 3000000
             });
@@ -457,8 +448,8 @@ describe('escrow', function () {
             return promise.should.eventually.be.rejected
         });
 
-        it('deactivate stopInEmergency', () => {
-            return escrow.releaseAsync({
+        it('stop emergency', () => {
+            return token.stopEmergencyAsync({
                 from: admin,
                 gas: 3000000
             });
@@ -523,8 +514,8 @@ describe('escrow', function () {
             return escrow.cancelEscrowAsync(assetId3, {from: admin, gas: 3000000}).should.eventually.be.rejected;
         });
 
-        it('activate stopInEmergency', () => {
-            return escrow.emergencyStopAsync({
+        it('start emergency', () => {
+            return token.startEmergencyAsync({
                 from: admin,
                 gas: 3000000
             });
@@ -535,8 +526,8 @@ describe('escrow', function () {
             return promise.should.eventually.be.rejected
         });
 
-        it('deactivate stopInEmergency', () => {
-            return escrow.releaseAsync({
+        it('stop emergency', () => {
+            return token.stopEmergencyAsync({
                 from: admin,
                 gas: 3000000
             });
@@ -598,8 +589,8 @@ describe('escrow', function () {
             return escrow.fulfillEscrowAsync(assetId4, {from: seller, gas: 3000000}).should.eventually.be.rejected;
         });
 
-        it('activate stopInEmergency', () => {
-            return escrow.emergencyStopAsync({
+        it('start emergency', () => {
+            return token.startEmergencyAsync({
                 from: admin,
                 gas: 3000000
             });
@@ -610,8 +601,8 @@ describe('escrow', function () {
             return promise.should.eventually.be.rejected
         });
 
-        it('deactivate stopInEmergency', () => {
-            return escrow.releaseAsync({
+        it('stop emergency', () => {
+            return token.stopEmergencyAsync({
                 from: admin,
                 gas: 3000000
             });
@@ -662,10 +653,7 @@ describe('escrow', function () {
         });
 
         it('add cash to buyer', () => {
-            return token.cashInAsync(buyer, assetPrice, {
-                from: admin,
-                gas: 3000000
-            });
+            return cashIn(buyer, assetPrice);
         });
 
         it('create another escrow', () => {
@@ -704,8 +692,8 @@ describe('escrow', function () {
             }).should.eventually.be.rejected;
         });
 
-        it('activate stopInEmergency', () => {
-            return escrow.emergencyStopAsync({
+        it('start emergency', () => {
+            return token.startEmergencyAsync({
                 from: admin,
                 gas: 3000000
             });
@@ -716,8 +704,8 @@ describe('escrow', function () {
             return promise.should.eventually.be.rejected
         });
 
-        it('deactivate stopInEmergency', () => {
-            return escrow.releaseAsync({
+        it('stop emergency', () => {
+            return token.stopEmergencyAsync({
                 from: admin,
                 gas: 3000000
             });
@@ -773,7 +761,7 @@ describe('escrow', function () {
         });
 
         it('check owner remains the same', () => {
-            return token.getOwnerAsync().then(expected => {
+            return token.ownerAsync().then(expected => {
                 assert.equal(expected.valueOf(), admin);
             });
         });
@@ -786,9 +774,17 @@ describe('escrow', function () {
         });
 
         it('check owner has been updated', () => {
-            return token.getOwnerAsync().then(expected => {
+            return token.ownerAsync().then(expected => {
                 assert.equal(expected.valueOf(), buyer);
             });
         });
     });
+
+    function cashIn(target, amount) {
+        return token.balanceOfAsync(target)
+            .then(balance => {
+                let prevBalance = Number(balance.valueOf());
+                return tokenData.setBalanceAsync(target, prevBalance + amount, { from: admin, gas: 3000000});
+            })
+    }
 });

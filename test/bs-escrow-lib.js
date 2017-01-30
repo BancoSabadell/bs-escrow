@@ -26,78 +26,61 @@ describe('Escrow lib', () => {
     const assetPrice = 400;
     var token = null;
     var escrow = null;
-    var admin = null;
-    var buyer = null;
-    var seller = null;
+    var tokenData = null;
+    const admin = '0x5bd47e61fbbf9c8b70372b6f14b068fddbd834ac';
+    const buyer = '0x25e940685e0999d4aa7bd629d739c6a04e625761';
+    const seller = '0x6128333118cef876bd620da1efa464437470298d';
 
-    describe('preconditions', () => {
-        it('populate admin, seller and buyer accounts', () => {
-            return web3.eth.getAccountsAsync()
-                .then(accounts => {
-                    admin = accounts[0];
-                    buyer = accounts[1];
-                    seller = accounts[2];
-                });
-        });
+    before(function() {
+        this.timeout(60000);
 
-        it('deploy dependent contracts', () => {
-            const paramsConstructor = {'BSToken': [0, 'BSToken', 0, 'BS']};
-
-            const deployer = new Deployer({
-                web3: web3,
-                address: admin,
-                gas: 3000000
-            });
-
-            return deployer.deployContracts(BSToken.contracts, paramsConstructor, ['BSToken']).then(contracts => {
+        return BSToken.deploy(web3, admin, admin, 3000000)
+            .then(deployment => {
                 token = new BSToken(web3, {
                     admin: {
                         account: admin,
                         password: ''
                     },
                     contractBSToken: {
-                        abi: contracts.BSToken.abi,
-                        address: contracts.BSToken.address
-                    },
-                    sendgrid: {
-                        apiKey: ''
+                        abi: deployment.bsTokenFrontend.abi,
+                        address: deployment.bsTokenFrontend.address
                     }
                 });
-            });
-        }).timeout(20000);
 
-        it('deploy contract Escrow', () => {
-            const contracts = Object.assign(BSToken.contracts, Escrow.contracts);
+                tokenData = deployment.bsTokenData;
 
-            const paramsConstructor = {'Escrow': [token.contract.address]};
+                const contracts = Object.assign(BSToken.contracts, Escrow.contracts);
+                const paramsConstructor = {'Escrow': [token.contract.address]};
 
-            const deployer = new Deployer({
-                web3: web3,
-                address: admin,
-                gas: 3000000
-            });
+                const deployer = new Deployer({
+                    web3: web3,
+                    address: admin,
+                    gas: 3000000
+                });
 
-            return deployer.deployContracts(contracts, paramsConstructor, ['Escrow']).then(contracts => {
-                escrow = new Escrow(web3, token, {
-                    admin: {
-                        account: admin,
-                        password: ''
-                    },
-                    contractEscrow: {
-                        abi: contracts.Escrow.abi,
-                        address: contracts.Escrow.address
-                    },
-                    sendgrid: {
-                        apiKey: ''
-                    }
+                return deployer.deployContracts(contracts, paramsConstructor, ['Escrow']).then(contracts => {
+                    escrow = new Escrow(web3, token, {
+                        admin: {
+                            account: admin,
+                            password: ''
+                        },
+                        contractEscrow: {
+                            abi: contracts.Escrow.abi,
+                            address: contracts.Escrow.address
+                        }
+                    });
                 });
             });
-        }).timeout(20000);
     });
 
     describe('createEscrow', () => {
-        it('add cash to account2', () => {
-            return token.cashIn(buyer, assetPrice);
+        it('add cash to buyer', () => {
+            return cashIn(buyer, assetPrice);
+        });
+
+        it('check balance buyer after', () => {
+            return escrow.accountBalance(buyer)
+                .should.eventually.include({amount: assetPrice});
         });
 
         it('should be rejected if seller and buyer are the same account', () => {
@@ -206,7 +189,7 @@ describe('Escrow lib', () => {
 
     describe('cancelEscrowProposal finish with arbitration', () => {
         it('add cash to buyer', () => {
-            return token.cashIn(buyer, assetPrice);
+            return cashIn(buyer, assetPrice);
         });
 
         it('create another escrow', () => {
@@ -227,7 +210,7 @@ describe('Escrow lib', () => {
 
         it('check balance buyer after', () => {
             return escrow.accountBalance(buyer)
-                .should.eventually.include({amount: assetPrice});
+                .should.eventually.include({amount: 0});
         });
 
         it('check balance contract after', () => {
@@ -263,7 +246,7 @@ describe('Escrow lib', () => {
 
         it('check balance buyer after', () => {
             return escrow.accountBalance(buyer)
-                .should.eventually.include({amount: assetPrice * 2});
+                .should.eventually.include({amount: assetPrice});
         });
 
         it('check balance contract after', () => {
@@ -303,7 +286,7 @@ describe('Escrow lib', () => {
 
         it('check balance buyer after', () => {
             return escrow.accountBalance(buyer)
-                .should.eventually.include({amount: assetPrice * 2});
+                .should.eventually.include({amount: assetPrice});
         });
 
         it('check balance contract after', () => {
@@ -344,7 +327,7 @@ describe('Escrow lib', () => {
 
         it('check balance buyer after', () => {
             return escrow.accountBalance(buyer)
-                .should.eventually.include({amount: assetPrice});
+                .should.eventually.include({amount: 0});
         });
 
         it('check balance contract after', () => {
@@ -373,6 +356,10 @@ describe('Escrow lib', () => {
         it('should be rejected if the there is no previous escrow for this assetId', () => {
             return escrow.fulfillEscrowArbitrating('', assetId5)
                 .should.eventually.be.rejectedWith('There is no escrow for this asset id');
+        });
+
+        it('add cash to buyer', () => {
+            return cashIn(buyer, assetPrice);
         });
 
         it('create another escrow', () => {
@@ -435,4 +422,12 @@ describe('Escrow lib', () => {
             return escrow.getOwner().should.eventually.include({owner: buyer});
         });
     });
+
+    function cashIn(target, amount) {
+        return token.balanceOf(target)
+            .then(balance => {
+                let prevBalance = isNaN(Number(balance.valueOf())) ? 0 : Number(balance.valueOf());
+                return tokenData.setBalanceAsync(target, prevBalance + amount, { from: admin, gas: 3000000});
+            })
+    }
 });
