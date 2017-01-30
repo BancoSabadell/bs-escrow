@@ -33,8 +33,8 @@
     "mocha-eslint": "^3.0.1",
     "eslint-config-airbnb-base": "^11.0.0",
     "eslint-plugin-import": "^2.2.0",
-    "smart-contract-deployer": "git+https://a57c26aca1254beb929ba38251940f77a8ab4d2e:x-oauth-basic@github.com/BancoSabadell/smart-contract-deployer.git",
-    "bs-token": "git+https://a57c26aca1254beb929ba38251940f77a8ab4d2e:x-oauth-basic@github.com/BancoSabadell/bs-token.git"
+    "smart-contract-deployer": "^1.0.1",
+    "bs-token": "^1.0.0"
   },
   "eslintConfig": {
     "env": {
