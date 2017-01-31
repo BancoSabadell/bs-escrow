@@ -40,6 +40,7 @@ Promise.promisifyAll(web3.eth);
 Promise.promisifyAll(web3.personal);
 
 describe('escrow', function () {
+    const gas = 3000000;
     const assetId1 = '1';
     const assetId2 = '2';
     const assetId3 = '3';
@@ -52,15 +53,18 @@ describe('escrow', function () {
     const seller = '0x6128333118cef876bd620da1efa464437470298d';
     var token = null;
     var tokenData = null;
+    var bsBanking = null;
+
     var escrow = null;
 
     before(function() {
         this.timeout(60000);
 
-        return BSToken.deploy(web3, admin, admin, 3000000)
+        return BSToken.deploy(web3, admin, admin, gas)
             .then(deployment => {
                 token = deployment.bsTokenFrontend;
                 tokenData = deployment.bsTokenData;
+                bsBanking = deployment.bsBanking;
 
                 const contracts = Object.assign(BSToken.contracts, Escrow.contracts);
                 const paramsConstructor = {'Escrow': [token.address]};
@@ -68,7 +72,7 @@ describe('escrow', function () {
                 const deployer = new Deployer({
                     web3: web3,
                     address: admin,
-                    gas: 3000000
+                    gas: gas
                 });
 
                 return deployer.deployContracts(contracts, paramsConstructor, ['Escrow']).then(contracts => {
@@ -80,7 +84,7 @@ describe('escrow', function () {
 
     describe('create escrow calling tokens.approveAndCall', () => {
         it('add cash to buyer', () => {
-            return cashIn(buyer, assetPrice);
+            return bsBanking.cashInAsync(buyer, assetPrice, { from: admin, gas: gas});
         });
 
         it('check balance buyer', () => {
@@ -92,7 +96,7 @@ describe('escrow', function () {
         it('should be rejected if receiveApproval is called directly from another account rather than tokens', () => {
             const promise = escrow.receiveApprovalAsync(buyer, seller, assetId1, assetPrice, {
                 from: buyer,
-                gas: 3000000
+                gas: gas
             });
 
             return promise.should.eventually.be.rejected
@@ -101,14 +105,14 @@ describe('escrow', function () {
         it('freeze account', () => {
             return token.freezeAccountAsync(buyer, true, {
                 from: admin,
-                gas: 3000000
+                gas: gas
             });
         });
 
         it('should be rejected if the account is frozen', () => {
             const promise = token.approveAndCallAsync(escrow.address, seller, assetId1, assetPrice, {
                 from: buyer,
-                gas: 3000000
+                gas: gas
             });
 
             return promise.should.eventually.be.rejected
@@ -117,21 +121,21 @@ describe('escrow', function () {
         it('unfreeze account', () => {
             return token.freezeAccountAsync(buyer, false, {
                 from: admin,
-                gas: 3000000
+                gas: gas
             });
         });
 
         it('start emergency', () => {
             return token.startEmergencyAsync({
                 from: admin,
-                gas: 3000000
+                gas: gas
             });
         });
 
         it('should be rejected if stopInEmergency', () => {
             const promise = token.approveAndCallAsync(escrow.address, seller, assetId1, assetPrice, {
                 from: buyer,
-                gas: 3000000
+                gas: gas
             });
 
             return promise.should.eventually.be.rejected
@@ -140,14 +144,14 @@ describe('escrow', function () {
         it('stop emergency', () => {
             return token.stopEmergencyAsync({
                 from: admin,
-                gas: 3000000
+                gas: gas
             });
         });
 
         it('should be rejected if buyer and seller are both the same', () => {
             const promise = token.approveAndCallAsync(escrow.address, buyer, assetId1, assetPrice, {
                 from: buyer,
-                gas: 3000000
+                gas: gas
             });
 
             return promise.should.eventually.be.rejected
@@ -156,7 +160,7 @@ describe('escrow', function () {
         it('should be fulfilled', () => {
             return token.approveAndCallAsync(escrow.address, seller, assetId1, assetPrice, {
                 from: buyer,
-                gas: 3000000
+                gas: gas
             });
         });
 
@@ -182,7 +186,7 @@ describe('escrow', function () {
         });
 
         it('add cash to buyer', () => {
-            return cashIn(buyer, assetPrice);
+            return bsBanking.cashInAsync(buyer, assetPrice, { from: admin, gas: gas});
         });
 
         it('check balance buyer', () => {
@@ -194,7 +198,7 @@ describe('escrow', function () {
         it('should be rejected if the assetId already exists', () => {
             const promise = token.approveAndCallAsync(escrow.address, seller, assetId1, assetPrice, {
                 from: buyer,
-                gas: 3000000
+                gas: gas
             });
             return promise.should.eventually.be.rejected
         });
@@ -202,7 +206,7 @@ describe('escrow', function () {
         it('cashOut buyer', () => {
             return token.cashOutAsync(assetPrice, bankAccount, {
                 from: buyer,
-                gas: 3000000
+                gas: gas
             });
         });
 
@@ -217,26 +221,26 @@ describe('escrow', function () {
         it('should be rejected if there is no previous escrow for this assetId', () => {
             return escrow.cancelEscrowProposalAsync(assetId2, {
                 from: buyer,
-                gas: 3000000
+                gas: gas
             }).should.eventually.be.rejected;
         });
 
         it('should be rejected if the account is the seller', () => {
             return escrow.cancelEscrowProposalAsync(assetId1, {
                 from: seller,
-                gas: 3000000
+                gas: gas
             }).should.eventually.be.rejected;
         });
 
         it('should be rejected if the account is the admin', () => {
             return escrow.cancelEscrowProposalAsync(assetId1, {
                 from: admin,
-                gas: 3000000
+                gas: gas
             }).should.eventually.be.rejected;
         });
 
         it('should be fulfilled', () => {
-            return escrow.cancelEscrowProposalAsync(assetId1, {from: buyer, gas: 3000000});
+            return escrow.cancelEscrowProposalAsync(assetId1, {from: buyer, gas: gas});
         });
 
         it('check balance buyer after', () => {
@@ -269,7 +273,7 @@ describe('escrow', function () {
         it('should be rejected if the state of the escrow is not held', () => {
             return escrow.cancelEscrowProposalAsync(assetId1, {
                 from: buyer,
-                gas: 3000000
+                gas: gas
             }).should.eventually.be.rejected;
         });
     });
@@ -280,34 +284,34 @@ describe('escrow', function () {
         it('should be rejected if there is no previous escrow for this assetId', () => {
             return escrow.validateCancelEscrowProposalAsync(assetId2, validate, {
                 from: seller,
-                gas: 3000000
+                gas: gas
             }).should.eventually.be.rejected;
         });
 
         it('should be rejected if the account is the buyer', () => {
             return escrow.validateCancelEscrowProposalAsync(assetId1, validate, {
                 from: buyer,
-                gas: 3000000
+                gas: gas
             }).should.eventually.be.rejected;
         });
 
         it('should be rejected if the account is the admin', () => {
             return escrow.validateCancelEscrowProposalAsync(assetId1, validate, {
                 from: admin,
-                gas: 3000000
+                gas: gas
             }).should.eventually.be.rejected;
         });
 
         it('start emergency', () => {
             return token.startEmergencyAsync({
                 from: admin,
-                gas: 3000000
+                gas: gas
             });
         });
 
         it('should be rejected if stopInEmergency', () => {
             const promise = escrow.validateCancelEscrowProposalAsync(assetId1, validate, {
-                from: seller, gas: 3000000
+                from: seller, gas: gas
             });
 
             return promise.should.eventually.be.rejected
@@ -316,12 +320,12 @@ describe('escrow', function () {
         it('stop emergency', () => {
             return token.stopEmergencyAsync({
                 from: admin,
-                gas: 3000000
+                gas: gas
             });
         });
 
         it('should be fulfilled', () => {
-            return escrow.validateCancelEscrowProposalAsync(assetId1, validate, {from: seller, gas: 3000000});
+            return escrow.validateCancelEscrowProposalAsync(assetId1, validate, {from: seller, gas: gas});
         });
 
         it('check balance buyer after', () => {
@@ -354,7 +358,7 @@ describe('escrow', function () {
         it('should be rejected if the state of the escrow is not BuyerProposeCancellation', () => {
             return escrow.validateCancelEscrowProposalAsync(assetId1, validate, {
                 from: seller,
-                gas: 3000000
+                gas: gas
             }).should.eventually.be.rejected;
         });
     });
@@ -363,12 +367,12 @@ describe('escrow', function () {
         it('create another escrow', () => {
             return token.approveAndCallAsync(escrow.address, seller, assetId2, assetPrice, {
                 from: buyer,
-                gas: 3000000
+                gas: gas
             });
         });
 
         it('should be fulfilled', () => {
-            return escrow.cancelEscrowProposalAsync(assetId2, {from: buyer, gas: 3000000});
+            return escrow.cancelEscrowProposalAsync(assetId2, {from: buyer, gas: gas});
         });
     });
 
@@ -376,7 +380,7 @@ describe('escrow', function () {
         const validate = false;
 
         it('should be fulfilled', () => {
-            return escrow.validateCancelEscrowProposalAsync(assetId2, validate, {from: seller, gas: 3000000});
+            return escrow.validateCancelEscrowProposalAsync(assetId2, validate, {from: seller, gas: gas});
         });
 
         it('check balance buyer after', () => {
@@ -409,7 +413,7 @@ describe('escrow', function () {
         it('should be rejected if the state of the escrow is not BuyerProposeCancellation', () => {
             return escrow.validateCancelEscrowProposalAsync(assetId2, validate, {
                 from: seller,
-                gas: 3000000
+                gas: gas
             }).should.eventually.be.rejected;
         });
     });
@@ -418,45 +422,45 @@ describe('escrow', function () {
         it('should be rejected if there is no previous escrow for this assetId', () => {
             return escrow.cancelEscrowArbitratingAsync('6rdtcdrc4a3', {
                 from: admin,
-                gas: 3000000
+                gas: gas
             }).should.eventually.be.rejected;
         });
 
         it('should be rejected if the account is the buyer', () => {
             return escrow.cancelEscrowArbitratingAsync(assetId2, {
                 from: buyer,
-                gas: 3000000
+                gas: gas
             }).should.eventually.be.rejected;
         });
 
         it('should be rejected if the account is the seller', () => {
             return escrow.cancelEscrowArbitratingAsync(assetId2, {
                 from: seller,
-                gas: 3000000
+                gas: gas
             }).should.eventually.be.rejected;
         });
 
         it('start emergency', () => {
             return token.startEmergencyAsync({
                 from: admin,
-                gas: 3000000
+                gas: gas
             });
         });
 
         it('should be rejected if stopInEmergency', () => {
-            const promise = escrow.cancelEscrowArbitratingAsync(assetId2, {from: admin, gas: 3000000});
+            const promise = escrow.cancelEscrowArbitratingAsync(assetId2, {from: admin, gas: gas});
             return promise.should.eventually.be.rejected
         });
 
         it('stop emergency', () => {
             return token.stopEmergencyAsync({
                 from: admin,
-                gas: 3000000
+                gas: gas
             });
         });
 
         it('should be fulfilled', () => {
-            return escrow.cancelEscrowArbitratingAsync(assetId2, {from: admin, gas: 3000000});
+            return escrow.cancelEscrowArbitratingAsync(assetId2, {from: admin, gas: gas});
         });
 
         it('check balance buyer after', () => {
@@ -489,52 +493,52 @@ describe('escrow', function () {
         it('should be rejected if the state of the escrow is not SellerDisagreeProposalCancellation', () => {
             return escrow.cancelEscrowArbitratingAsync(assetId2, {
                 from: admin,
-                gas: 3000000
+                gas: gas
             }).should.eventually.be.rejected;
         });
     });
 
     describe('cancelEscrow seller', () => {
         it('should be rejected if there is no previous escrow for this assetId', () => {
-            return escrow.cancelEscrowAsync(assetId3, {from: seller, gas: 3000000}).should.eventually.be.rejected;
+            return escrow.cancelEscrowAsync(assetId3, {from: seller, gas: gas}).should.eventually.be.rejected;
         });
 
         it('create another escrow', () => {
             return token.approveAndCallAsync(escrow.address, seller, assetId3, assetPrice, {
                 from: buyer,
-                gas: 3000000
+                gas: gas
             });
         });
 
         it('should be rejected if the account is the buyer', () => {
-            return escrow.cancelEscrowAsync(assetId3, {from: buyer, gas: 3000000}).should.eventually.be.rejected;
+            return escrow.cancelEscrowAsync(assetId3, {from: buyer, gas: gas}).should.eventually.be.rejected;
         });
 
         it('should be rejected if the account is the admin', () => {
-            return escrow.cancelEscrowAsync(assetId3, {from: admin, gas: 3000000}).should.eventually.be.rejected;
+            return escrow.cancelEscrowAsync(assetId3, {from: admin, gas: gas}).should.eventually.be.rejected;
         });
 
         it('start emergency', () => {
             return token.startEmergencyAsync({
                 from: admin,
-                gas: 3000000
+                gas: gas
             });
         });
 
         it('should be rejected if stopInEmergency', () => {
-            const promise = escrow.cancelEscrowAsync(assetId3, {from: seller, gas: 3000000});
+            const promise = escrow.cancelEscrowAsync(assetId3, {from: seller, gas: gas});
             return promise.should.eventually.be.rejected
         });
 
         it('stop emergency', () => {
             return token.stopEmergencyAsync({
                 from: admin,
-                gas: 3000000
+                gas: gas
             });
         });
 
         it('should be fulfilled', () => {
-            return escrow.cancelEscrowAsync(assetId3, {from: seller, gas: 3000000});
+            return escrow.cancelEscrowAsync(assetId3, {from: seller, gas: gas});
         });
 
         it('check balance buyer after', () => {
@@ -565,51 +569,51 @@ describe('escrow', function () {
         });
 
         it('should be rejected if the state of the escrow is not SellerDisagreeProposalCancellation', () => {
-            return escrow.cancelEscrowAsync(assetId3, {from: seller, gas: 3000000}).should.eventually.be.rejected;
+            return escrow.cancelEscrowAsync(assetId3, {from: seller, gas: gas}).should.eventually.be.rejected;
         });
     });
 
     describe('fulfillEscrow buyer', () => {
         it('should be rejected if the there is no previous escrow for this assetId', () => {
-            return escrow.fulfillEscrowAsync(assetId4, {from: buyer, gas: 3000000}).should.eventually.be.rejected;
+            return escrow.fulfillEscrowAsync(assetId4, {from: buyer, gas: gas}).should.eventually.be.rejected;
         });
 
         it('create another escrow', () => {
             return token.approveAndCallAsync(escrow.address, seller, assetId4, assetPrice, {
                 from: buyer,
-                gas: 3000000
+                gas: gas
             });
         });
 
         it('should be rejected if the account is the admin', () => {
-            return escrow.fulfillEscrowAsync(assetId4, {from: admin, gas: 3000000}).should.eventually.be.rejected;
+            return escrow.fulfillEscrowAsync(assetId4, {from: admin, gas: gas}).should.eventually.be.rejected;
         });
 
         it('should be rejected if the account is the seller', () => {
-            return escrow.fulfillEscrowAsync(assetId4, {from: seller, gas: 3000000}).should.eventually.be.rejected;
+            return escrow.fulfillEscrowAsync(assetId4, {from: seller, gas: gas}).should.eventually.be.rejected;
         });
 
         it('start emergency', () => {
             return token.startEmergencyAsync({
                 from: admin,
-                gas: 3000000
+                gas: gas
             });
         });
 
         it('should be rejected if stopInEmergency', () => {
-            const promise = escrow.fulfillEscrowAsync(assetId4, {from: buyer, gas: 3000000});
+            const promise = escrow.fulfillEscrowAsync(assetId4, {from: buyer, gas: gas});
             return promise.should.eventually.be.rejected
         });
 
         it('stop emergency', () => {
             return token.stopEmergencyAsync({
                 from: admin,
-                gas: 3000000
+                gas: gas
             });
         });
 
         it('should be fulfilled', () => {
-            return escrow.fulfillEscrowAsync(assetId4, {from: buyer, gas: 3000000});
+            return escrow.fulfillEscrowAsync(assetId4, {from: buyer, gas: gas});
         });
 
         it('check escrow state', () => {
@@ -640,7 +644,7 @@ describe('escrow', function () {
         });
 
         it('fulfillEscrow should be rejected if the state of the escrow is not held', () => {
-            return escrow.fulfillEscrowAsync(assetId4, {from: buyer, gas: 3000000}).should.eventually.be.rejected;
+            return escrow.fulfillEscrowAsync(assetId4, {from: buyer, gas: gas}).should.eventually.be.rejected;
         });
     });
 
@@ -648,71 +652,71 @@ describe('escrow', function () {
         it('should be rejected if the there is no previous escrow for this assetId', () => {
             return escrow.fulfillEscrowArbitratingAsync(assetId5, {
                 from: admin,
-                gas: 3000000
+                gas: gas
             }).should.eventually.be.rejected;
         });
 
         it('add cash to buyer', () => {
-            return cashIn(buyer, assetPrice);
+            return bsBanking.cashInAsync(buyer, assetPrice, { from: admin, gas: gas});
         });
 
         it('create another escrow', () => {
             return token.approveAndCallAsync(escrow.address, seller, assetId5, assetPrice, {
                 from: buyer,
-                gas: 3000000
+                gas: gas
             });
         });
 
         it('fulfillEscrow should be rejected if the state of the escrow is not SellerDisagreeProposalCancellation', () => {
             return escrow.fulfillEscrowArbitratingAsync(assetId5, {
                 from: admin,
-                gas: 3000000
+                gas: gas
             }).should.eventually.be.rejected;
         });
 
         it('buyer make a proposal of cancellation', () => {
-            return escrow.cancelEscrowProposalAsync(assetId5, {from: buyer, gas: 3000000});
+            return escrow.cancelEscrowProposalAsync(assetId5, {from: buyer, gas: gas});
         });
 
         it('seller disagree with this a proposal of cancellation', () => {
-            return escrow.validateCancelEscrowProposalAsync(assetId5, false, {from: seller, gas: 3000000});
+            return escrow.validateCancelEscrowProposalAsync(assetId5, false, {from: seller, gas: gas});
         });
 
         it('should be rejected if the account is the buyer', () => {
             return escrow.fulfillEscrowArbitratingAsync(assetId5, {
                 from: buyer,
-                gas: 3000000
+                gas: gas
             }).should.eventually.be.rejected;
         });
 
         it('should be rejected if the account is the seller', () => {
             return escrow.fulfillEscrowArbitratingAsync(assetId5, {
                 from: seller,
-                gas: 3000000
+                gas: gas
             }).should.eventually.be.rejected;
         });
 
         it('start emergency', () => {
             return token.startEmergencyAsync({
                 from: admin,
-                gas: 3000000
+                gas: gas
             });
         });
 
         it('should be rejected if stopInEmergency', () => {
-            const promise = escrow.fulfillEscrowArbitratingAsync(assetId5, {from: admin, gas: 3000000});
+            const promise = escrow.fulfillEscrowArbitratingAsync(assetId5, {from: admin, gas: gas});
             return promise.should.eventually.be.rejected
         });
 
         it('stop emergency', () => {
             return token.stopEmergencyAsync({
                 from: admin,
-                gas: 3000000
+                gas: gas
             });
         });
 
         it('should be fulfilled', () => {
-            return escrow.fulfillEscrowArbitratingAsync(assetId5, {from: admin, gas: 3000000});
+            return escrow.fulfillEscrowArbitratingAsync(assetId5, {from: admin, gas: gas});
         });
 
         it('check escrow state', () => {
@@ -745,7 +749,7 @@ describe('escrow', function () {
         it('fulfillEscrow should be rejected if the state of the escrow is not SellerDisagreeProposalCancellation', () => {
             return escrow.fulfillEscrowArbitratingAsync(assetId5, {
                 from: admin,
-                gas: 3000000
+                gas: gas
             }).should.eventually.be.rejected;
         });
     });
@@ -754,7 +758,7 @@ describe('escrow', function () {
         it('should be rejected if the account is not the owner', () => {
             const promise = token.transferOwnershipAsync(buyer, {
                 from: seller,
-                gas: 3000000
+                gas: gas
             });
 
             return promise.should.eventually.be.rejected
@@ -769,7 +773,7 @@ describe('escrow', function () {
         it('should be fulfilled', () => {
             return token.transferOwnershipAsync(buyer, {
                 from: admin,
-                gas: 3000000
+                gas: gas
             });
         });
 
@@ -779,12 +783,4 @@ describe('escrow', function () {
             });
         });
     });
-
-    function cashIn(target, amount) {
-        return token.balanceOfAsync(target)
-            .then(balance => {
-                let prevBalance = Number(balance.valueOf());
-                return tokenData.setBalanceAsync(target, prevBalance + amount, { from: admin, gas: 3000000});
-            })
-    }
 });

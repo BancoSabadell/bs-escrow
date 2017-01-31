@@ -60,7 +60,7 @@ class Escrow {
                 this.contract.address, seller, assetId, assetPrice));
     }
 
-    accountBalance(account) {
+    balanceOf(account) {
         return this.token.balanceOf(account);
     }
 
