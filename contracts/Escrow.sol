@@ -1,16 +1,16 @@
 import "Ownable.sol";
-import "BSToken.sol";
+import "BSTokenFrontend.sol";
 import "TokenRecipient.sol";
 
 pragma solidity ^0.4.2;
 
-contract Escrow is Ownable, TokenRecipient {
-    BSToken token;
+contract Escrow is Stoppable, TokenRecipient {
+    BSTokenFrontend token;
     address bsTokenAddress;
 
     function Escrow(address someBsTokenAddress){
         bsTokenAddress = someBsTokenAddress;
-        token = BSToken(bsTokenAddress);
+        token = BSTokenFrontend(bsTokenAddress);
     }
 
     struct EscrowData {

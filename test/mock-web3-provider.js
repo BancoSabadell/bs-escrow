@@ -4,11 +4,11 @@ const TestRPC = require("ethereumjs-testrpc");
 
 const provider = TestRPC.provider({
     accounts: [
-        {index: 0, balance: 20000000},
-        {index: 1, balance: 20000000},
-        {index: 2, balance: 20000000},
-        {index: 3, balance: 20000000},
-        {index: 4, balance: 20000000}
+        {index: 0, balance: 20000000, secretKey: '0x998c22e6ab1959d6ac7777f12d583cc27d6fb442c51770125ab9246cb549db80' },
+        {index: 1, balance: 20000000, secretKey: '0x998c22e6ab1959d6ac7777f12d583cc27d6fb442c51770125ab9246cb549db81'},
+        {index: 2, balance: 20000000, secretKey: '0x998c22e6ab1959d6ac7777f12d583cc27d6fb442c51770125ab9246cb549db82'},
+        {index: 3, balance: 20000000, secretKey: '0x998c22e6ab1959d6ac7777f12d583cc27d6fb442c51770125ab9246cb549db83'},
+        {index: 4, balance: 20000000, secretKey: '0x998c22e6ab1959d6ac7777f12d583cc27d6fb442c51770125ab9246cb549db84'}
     ]
 });
 

@@ -26,10 +26,6 @@ class Escrow {
             });
     }
 
-    isEthereumAddress(candidate) {
-        return this.web3.isAddress(candidate);
-    }
-
     unlockAdminAccount() {
         return this.web3.personal.unlockAccountAsync(
             this.config.admin.account,
@@ -51,7 +47,7 @@ class Escrow {
     }
 
     getOwner() {
-        return this.contract.getOwnerAsync()
+        return this.contract.ownerAsync()
             .then(owner => ({ owner }));
     }
 
@@ -64,7 +60,7 @@ class Escrow {
                 this.contract.address, seller, assetId, assetPrice));
     }
 
-    accountBalance(account) {
+    balanceOf(account) {
         return this.token.balanceOf(account);
     }
 
