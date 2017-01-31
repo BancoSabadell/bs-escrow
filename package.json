@@ -1,7 +1,7 @@
 {
   "name": "bs-escrow",
-  "version": "0.0.1",
-  "description": "Escrow contract",
+  "version": "1.0.0",
+  "description": "A js wrapper around BSToken contract to simplify its consumption",
   "main": "index.js",
   "scripts": {
     "test": "mocha --recursive"
@@ -15,8 +15,13 @@
     "ethereum",
     "token"
   ],
-  "author": "Jose Luis Piedrahita <jlpiedrahita@gmail.com>",
-  "license": "ISC",
+  "author": "Banco Sabadell, S.A (https://github.com/BancoSabadell)",
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/brentertz/scapegoat/blob/master/LICENSE-MIT"
+    }
+  ],
   "bugs": {
     "url": "https://github.com/BancoSabadell/bs-escrow/issues"
   },
@@ -34,7 +39,7 @@
     "eslint-config-airbnb-base": "^11.0.0",
     "eslint-plugin-import": "^2.2.0",
     "smart-contract-deployer": "^1.0.1",
-    "bs-token": "^1.0.0"
+    "bs-token": "^1.0.2"
   },
   "eslintConfig": {
     "env": {

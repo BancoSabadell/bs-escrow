@@ -17,6 +17,7 @@ Promise.promisifyAll(web3.eth);
 Promise.promisifyAll(web3.personal);
 
 describe('Escrow lib', () => {
+    const gas = 3000000;
     const assetId1 = '1';
     const assetId2 = '2';
     const assetId3 = '3';
@@ -27,6 +28,7 @@ describe('Escrow lib', () => {
     var token = null;
     var escrow = null;
     var tokenData = null;
+    var bsBanking = null;
     const admin = '0x5bd47e61fbbf9c8b70372b6f14b068fddbd834ac';
     const buyer = '0x25e940685e0999d4aa7bd629d739c6a04e625761';
     const seller = '0x6128333118cef876bd620da1efa464437470298d';
@@ -34,7 +36,7 @@ describe('Escrow lib', () => {
     before(function() {
         this.timeout(60000);
 
-        return BSToken.deploy(web3, admin, admin, 3000000)
+        return BSToken.deploy(web3, admin, admin, gas)
             .then(deployment => {
                 token = new BSToken(web3, {
                     admin: {
@@ -48,6 +50,7 @@ describe('Escrow lib', () => {
                 });
 
                 tokenData = deployment.bsTokenData;
+                bsBanking = deployment.bsBanking;
 
                 const contracts = Object.assign(BSToken.contracts, Escrow.contracts);
                 const paramsConstructor = {'Escrow': [token.contract.address]};
@@ -55,7 +58,7 @@ describe('Escrow lib', () => {
                 const deployer = new Deployer({
                     web3: web3,
                     address: admin,
-                    gas: 3000000
+                    gas: gas
                 });
 
                 return deployer.deployContracts(contracts, paramsConstructor, ['Escrow']).then(contracts => {
@@ -75,11 +78,11 @@ describe('Escrow lib', () => {
 
     describe('createEscrow', () => {
         it('add cash to buyer', () => {
-            return cashIn(buyer, assetPrice);
+            return bsBanking.cashInAsync(buyer, assetPrice, { from: admin, gas: gas});
         });
 
         it('check balance buyer after', () => {
-            return escrow.accountBalance(buyer)
+            return escrow.balanceOf(buyer)
                 .should.eventually.include({amount: assetPrice});
         });
 
@@ -98,12 +101,12 @@ describe('Escrow lib', () => {
         });
 
         it('check balance buyer after', () => {
-            return escrow.accountBalance(buyer)
+            return escrow.balanceOf(buyer)
                 .should.eventually.include({amount: 0});
         });
 
         it('check balance contract after', () => {
-            return escrow.accountBalance(escrow.contract.address)
+            return escrow.balanceOf(escrow.contract.address)
                 .should.eventually.include({amount: assetPrice});
         });
 
@@ -124,17 +127,17 @@ describe('Escrow lib', () => {
         });
 
         it('check balance buyer after', () => {
-            return escrow.accountBalance(buyer)
+            return escrow.balanceOf(buyer)
                 .should.eventually.include({amount: 0});
         });
 
         it('check balance contract after', () => {
-            return escrow.accountBalance(escrow.contract.address)
+            return escrow.balanceOf(escrow.contract.address)
                 .should.eventually.include({amount: assetPrice});
         });
 
         it('check balance seller after', () => {
-            return escrow.accountBalance(seller)
+            return escrow.balanceOf(seller)
                 .should.eventually.include({amount: 0});
         });
 
@@ -162,17 +165,17 @@ describe('Escrow lib', () => {
         });
 
         it('check balance buyer after', () => {
-            return escrow.accountBalance(buyer)
+            return escrow.balanceOf(buyer)
                 .should.eventually.include({amount: assetPrice});
         });
 
         it('check balance contract after', () => {
-            return escrow.accountBalance(escrow.contract.address)
+            return escrow.balanceOf(escrow.contract.address)
                 .should.eventually.include({amount: 0});
         });
 
         it('check balance seller after', () => {
-            return escrow.accountBalance(seller)
+            return escrow.balanceOf(seller)
                 .should.eventually.include({amount: 0});
         });
 
@@ -189,7 +192,7 @@ describe('Escrow lib', () => {
 
     describe('cancelEscrowProposal finish with arbitration', () => {
         it('add cash to buyer', () => {
-            return cashIn(buyer, assetPrice);
+            return bsBanking.cashInAsync(buyer, assetPrice, { from: admin, gas: gas});
         });
 
         it('create another escrow', () => {
@@ -209,17 +212,17 @@ describe('Escrow lib', () => {
         });
 
         it('check balance buyer after', () => {
-            return escrow.accountBalance(buyer)
-                .should.eventually.include({amount: 0});
+            return escrow.balanceOf(buyer)
+                .should.eventually.include({amount: assetPrice});
         });
 
         it('check balance contract after', () => {
-            return escrow.accountBalance(escrow.contract.address)
+            return escrow.balanceOf(escrow.contract.address)
                 .should.eventually.include({amount: assetPrice});
         });
 
         it('check balance seller after', () => {
-            return escrow.accountBalance(seller)
+            return escrow.balanceOf(seller)
                 .should.eventually.include({amount: 0});
         });
 
@@ -245,17 +248,17 @@ describe('Escrow lib', () => {
         });
 
         it('check balance buyer after', () => {
-            return escrow.accountBalance(buyer)
-                .should.eventually.include({amount: assetPrice});
+            return escrow.balanceOf(buyer)
+                .should.eventually.include({amount: assetPrice * 2});
         });
 
         it('check balance contract after', () => {
-            return escrow.accountBalance(escrow.contract.address)
+            return escrow.balanceOf(escrow.contract.address)
                 .should.eventually.include({amount: 0});
         });
 
         it('check balance seller after', () => {
-            return escrow.accountBalance(seller)
+            return escrow.balanceOf(seller)
                 .should.eventually.include({amount: 0});
         });
 
@@ -285,17 +288,17 @@ describe('Escrow lib', () => {
         });
 
         it('check balance buyer after', () => {
-            return escrow.accountBalance(buyer)
-                .should.eventually.include({amount: assetPrice});
+            return escrow.balanceOf(buyer)
+                .should.eventually.include({amount: assetPrice * 2});
         });
 
         it('check balance contract after', () => {
-            return escrow.accountBalance(escrow.contract.address)
+            return escrow.balanceOf(escrow.contract.address)
                 .should.eventually.include({amount: 0});
         });
 
         it('check balance seller after', () => {
-            return escrow.accountBalance(seller)
+            return escrow.balanceOf(seller)
                 .should.eventually.include({amount: 0});
         });
 
@@ -326,17 +329,17 @@ describe('Escrow lib', () => {
         });
 
         it('check balance buyer after', () => {
-            return escrow.accountBalance(buyer)
-                .should.eventually.include({amount: 0});
+            return escrow.balanceOf(buyer)
+                .should.eventually.include({amount: assetPrice});
         });
 
         it('check balance contract after', () => {
-            return escrow.accountBalance(escrow.contract.address)
+            return escrow.balanceOf(escrow.contract.address)
                 .should.eventually.include({amount: 0});
         });
 
         it('check balance seller after', () => {
-            return escrow.accountBalance(seller)
+            return escrow.balanceOf(seller)
                 .should.eventually.include({amount: assetPrice});
         });
 
@@ -359,7 +362,7 @@ describe('Escrow lib', () => {
         });
 
         it('add cash to buyer', () => {
-            return cashIn(buyer, assetPrice);
+            return bsBanking.cashInAsync(buyer, assetPrice, { from: admin, gas: gas});
         });
 
         it('create another escrow', () => {
@@ -384,17 +387,17 @@ describe('Escrow lib', () => {
         });
 
         it('check balance buyer after', () => {
-            return escrow.accountBalance(buyer)
-                .should.eventually.include({amount: 0});
+            return escrow.balanceOf(buyer)
+                .should.eventually.include({amount: assetPrice});
         });
 
         it('check balance contract after', () => {
-            return escrow.accountBalance(escrow.contract.address)
+            return escrow.balanceOf(escrow.contract.address)
                 .should.eventually.include({amount: 0});
         });
 
         it('check balance seller after', () => {
-            return escrow.accountBalance(seller)
+            return escrow.balanceOf(seller)
                 .should.eventually.include({amount: assetPrice * 2});
         });
 
@@ -422,12 +425,4 @@ describe('Escrow lib', () => {
             return escrow.getOwner().should.eventually.include({owner: buyer});
         });
     });
-
-    function cashIn(target, amount) {
-        return token.balanceOf(target)
-            .then(balance => {
-                let prevBalance = isNaN(Number(balance.valueOf())) ? 0 : Number(balance.valueOf());
-                return tokenData.setBalanceAsync(target, prevBalance + amount, { from: admin, gas: 3000000});
-            })
-    }
 });
