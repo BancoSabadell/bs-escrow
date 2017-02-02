@@ -3,20 +3,20 @@
 const fs = require('fs');
 const Promise = require('bluebird');
 const path = require('path');
+const Deployer = require('contract-deployer');
+const BSToken = require('bs-token');
 
 const NULL_ETHEREUM_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 class Escrow {
-    constructor(web3, token, config) {
+    constructor(web3, config) {
         this.config = config;
-        this.token = token;
         this.web3 = web3;
-        this.contract = this.web3.eth.contract(config.contractEscrow.abi)
-            .at(config.contractEscrow.address);
+        this.contract = config.contractEscrow;
+        this.bsTokenLib = config.bsTokenLib;
 
         Promise.promisifyAll(this.web3.personal);
         Promise.promisifyAll(this.web3.eth);
-        Promise.promisifyAll(this.contract);
 
         Promise.assert = (condition, message) =>
             Promise.try(() => {
@@ -56,12 +56,8 @@ class Escrow {
             .then(() => this.getEscrow(assetId))
             .then(escrow => Promise.assert(escrow.buyer === NULL_ETHEREUM_ADDRESS,
                 'There is already an escrow for this asset id'))
-            .then(() => this.token.approveAndCall(buyer, buyerPass,
+            .then(() => this.bsTokenLib.approveAndCall(buyer, buyerPass,
                 this.contract.address, seller, assetId, assetPrice));
-    }
-
-    balanceOf(account) {
-        return this.token.balanceOf(account);
     }
 
     cancelEscrowArbitrating(passwordOwner, assetId) {
@@ -163,6 +159,12 @@ class Escrow {
 }
 
 module.exports = Escrow;
-module.exports.contracts = {
+
+module.exports.contracts = Object.assign(BSToken.contracts, {
     'Escrow.sol': fs.readFileSync(path.join(__dirname, '../contracts/Escrow.sol'), 'utf8')
+});
+
+module.exports.deployedContract = function (web3, admin, bsToken, gas) {
+    const deployer = new Deployer(web3, {sources: Escrow.contracts}, 0);
+    return deployer.deploy('Escrow', [bsToken.address], { from: admin, gas: gas });
 };
