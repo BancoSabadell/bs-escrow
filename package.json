@@ -30,6 +30,7 @@
     "bluebird": "^3.4.6"
   },
   "devDependencies": {
+    "bignumber.js": "^4.0.0",
     "chai": "^3.5.0",
     "chai-as-promised": "^6.0.0",
     "eslint": "^3.12.2",
@@ -38,8 +39,10 @@
     "mocha-eslint": "^3.0.1",
     "eslint-config-airbnb-base": "^11.0.0",
     "eslint-plugin-import": "^2.2.0",
-    "smart-contract-deployer": "^1.0.1",
-    "bs-token": "^1.0.2"
+    "contract-deployer": "^1.0.0",
+    "bs-token-data": "^1.0.0",
+    "bs-token-banking": "^1.0.3",
+    "bs-token": "^1.0.3"
   },
   "eslintConfig": {
     "env": {

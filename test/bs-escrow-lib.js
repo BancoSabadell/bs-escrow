@@ -1,13 +1,14 @@
 'use strict';
 
-const Deployer = require('smart-contract-deployer');
-const fs = require('fs');
+const BSTokenData = require('bs-token-data');
+const BSTokenBanking = require('bs-token-banking');
 const BSToken = require('bs-token');
 const Escrow = require('../src/lib');
 const Web3 = require('web3');
 const Promise = require('bluebird');
 const chai = require('chai');
 const chaiAsPromised = require('chai-as-promised');
+const BigNumber = require('bignumber.js');
 
 chai.use(chaiAsPromised);
 chai.should();
@@ -25,10 +26,10 @@ describe('Escrow lib', () => {
     const assetId5 = '5';
 
     const assetPrice = 400;
-    var token = null;
-    var escrow = null;
-    var tokenData = null;
-    var bsBanking = null;
+    let bsTokenFrontend = null;
+    let escrow = null;
+    let bsTokenData = null;
+    let bsTokenBanking = null;
     const admin = '0x5bd47e61fbbf9c8b70372b6f14b068fddbd834ac';
     const buyer = '0x25e940685e0999d4aa7bd629d739c6a04e625761';
     const seller = '0x6128333118cef876bd620da1efa464437470298d';
@@ -36,54 +37,42 @@ describe('Escrow lib', () => {
     before(function() {
         this.timeout(60000);
 
-        return BSToken.deploy(web3, admin, admin, gas)
-            .then(deployment => {
-                token = new BSToken(web3, {
-                    admin: {
-                        account: admin,
-                        password: ''
-                    },
-                    contractBSToken: {
-                        abi: deployment.bsTokenFrontend.abi,
-                        address: deployment.bsTokenFrontend.address
-                    }
+        return BSTokenData.deployedContract(web3, admin, gas)
+            .then(contract => {
+                bsTokenData = contract;
+                return BSTokenBanking.deployedContract(web3, admin, bsTokenData, gas);
+            })
+            .then((contract) => {
+                bsTokenBanking = contract;
+                return bsTokenData.addMerchantAsync(admin, { from: admin, gas: gas });
+            })
+            .then(() => BSToken.deployedContract(web3, admin, admin, bsTokenData, gas))
+            .then((contract) => {
+                bsTokenFrontend = contract;
+                return Escrow.deployedContract(web3, admin, bsTokenFrontend, gas);
+            })
+            .then(contract => {
+                const bsTokenLib = new BSToken(web3, {
+                    admin: { account: admin, password: '' },
+                    contractBSToken: bsTokenFrontend
                 });
 
-                tokenData = deployment.bsTokenData;
-                bsBanking = deployment.bsBanking;
-
-                const contracts = Object.assign(BSToken.contracts, Escrow.contracts);
-                const paramsConstructor = {'Escrow': [token.contract.address]};
-
-                const deployer = new Deployer({
-                    web3: web3,
-                    address: admin,
-                    gas: gas
-                });
-
-                return deployer.deployContracts(contracts, paramsConstructor, ['Escrow']).then(contracts => {
-                    escrow = new Escrow(web3, token, {
-                        admin: {
-                            account: admin,
-                            password: ''
-                        },
-                        contractEscrow: {
-                            abi: contracts.Escrow.abi,
-                            address: contracts.Escrow.address
-                        }
-                    });
+                escrow = new Escrow(web3,  {
+                    admin: { account: admin, password: '' },
+                    bsTokenLib : bsTokenLib,
+                    contractEscrow: contract
                 });
             });
     });
 
-    describe('createEscrow', () => {
+    describe('Escrow lib', () => {
         it('add cash to buyer', () => {
-            return bsBanking.cashInAsync(buyer, assetPrice, { from: admin, gas: gas});
+            return bsTokenBanking.cashInAsync(buyer, assetPrice, { from: admin, gas: gas});
         });
 
         it('check balance buyer after', () => {
-            return escrow.balanceOf(buyer)
-                .should.eventually.include({amount: assetPrice});
+            return bsTokenFrontend.balanceOfAsync(buyer)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(assetPrice)));
         });
 
         it('should be rejected if seller and buyer are the same account', () => {
@@ -101,13 +90,13 @@ describe('Escrow lib', () => {
         });
 
         it('check balance buyer after', () => {
-            return escrow.balanceOf(buyer)
-                .should.eventually.include({amount: 0});
+            return bsTokenFrontend.balanceOfAsync(buyer)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(0)));
         });
 
         it('check balance contract after', () => {
-            return escrow.balanceOf(escrow.contract.address)
-                .should.eventually.include({amount: assetPrice});
+            return bsTokenFrontend.balanceOfAsync(escrow.contract.address)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(assetPrice)));
         });
 
         it('check escrow state after', () => {
@@ -127,18 +116,18 @@ describe('Escrow lib', () => {
         });
 
         it('check balance buyer after', () => {
-            return escrow.balanceOf(buyer)
-                .should.eventually.include({amount: 0});
+            return bsTokenFrontend.balanceOfAsync(buyer)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(0)));
         });
 
         it('check balance contract after', () => {
-            return escrow.balanceOf(escrow.contract.address)
-                .should.eventually.include({amount: assetPrice});
+            return bsTokenFrontend.balanceOfAsync(escrow.contract.address)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(assetPrice)));
         });
 
         it('check balance seller after', () => {
-            return escrow.balanceOf(seller)
-                .should.eventually.include({amount: 0});
+            return bsTokenFrontend.balanceOfAsync(seller)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(0)));
         });
 
         it('check escrow state after', () => {
@@ -165,18 +154,18 @@ describe('Escrow lib', () => {
         });
 
         it('check balance buyer after', () => {
-            return escrow.balanceOf(buyer)
-                .should.eventually.include({amount: assetPrice});
+            return bsTokenFrontend.balanceOfAsync(buyer)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(assetPrice)));
         });
 
         it('check balance contract after', () => {
-            return escrow.balanceOf(escrow.contract.address)
-                .should.eventually.include({amount: 0});
+            return bsTokenFrontend.balanceOfAsync(escrow.contract.address)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(0)));
         });
 
         it('check balance seller after', () => {
-            return escrow.balanceOf(seller)
-                .should.eventually.include({amount: 0});
+            return bsTokenFrontend.balanceOfAsync(seller)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(0)));
         });
 
         it('check escrow state after', () => {
@@ -192,7 +181,7 @@ describe('Escrow lib', () => {
 
     describe('cancelEscrowProposal finish with arbitration', () => {
         it('add cash to buyer', () => {
-            return bsBanking.cashInAsync(buyer, assetPrice, { from: admin, gas: gas});
+            return bsTokenBanking.cashInAsync(buyer, assetPrice, { from: admin, gas: gas});
         });
 
         it('create another escrow', () => {
@@ -212,18 +201,18 @@ describe('Escrow lib', () => {
         });
 
         it('check balance buyer after', () => {
-            return escrow.balanceOf(buyer)
-                .should.eventually.include({amount: assetPrice});
+            return bsTokenFrontend.balanceOfAsync(buyer)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(assetPrice)));
         });
 
         it('check balance contract after', () => {
-            return escrow.balanceOf(escrow.contract.address)
-                .should.eventually.include({amount: assetPrice});
+            return bsTokenFrontend.balanceOfAsync(escrow.contract.address)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(assetPrice)));
         });
 
         it('check balance seller after', () => {
-            return escrow.balanceOf(seller)
-                .should.eventually.include({amount: 0});
+            return bsTokenFrontend.balanceOfAsync(seller)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(0)));
         });
 
         it('check escrow state after', () => {
@@ -248,18 +237,18 @@ describe('Escrow lib', () => {
         });
 
         it('check balance buyer after', () => {
-            return escrow.balanceOf(buyer)
-                .should.eventually.include({amount: assetPrice * 2});
+            return bsTokenFrontend.balanceOfAsync(buyer)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(assetPrice * 2)));
         });
 
         it('check balance contract after', () => {
-            return escrow.balanceOf(escrow.contract.address)
-                .should.eventually.include({amount: 0});
+            return bsTokenFrontend.balanceOfAsync(escrow.contract.address)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(0)));
         });
 
         it('check balance seller after', () => {
-            return escrow.balanceOf(seller)
-                .should.eventually.include({amount: 0});
+            return bsTokenFrontend.balanceOfAsync(seller)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(0)));
         });
 
         it('check escrow state after', () => {
@@ -288,18 +277,18 @@ describe('Escrow lib', () => {
         });
 
         it('check balance buyer after', () => {
-            return escrow.balanceOf(buyer)
-                .should.eventually.include({amount: assetPrice * 2});
+            return bsTokenFrontend.balanceOfAsync(buyer)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(assetPrice * 2)));
         });
 
         it('check balance contract after', () => {
-            return escrow.balanceOf(escrow.contract.address)
-                .should.eventually.include({amount: 0});
+            return bsTokenFrontend.balanceOfAsync(escrow.contract.address)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(0)));
         });
 
         it('check balance seller after', () => {
-            return escrow.balanceOf(seller)
-                .should.eventually.include({amount: 0});
+            return bsTokenFrontend.balanceOfAsync(seller)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(0)));
         });
 
         it('check escrow state after', () => {
@@ -329,18 +318,18 @@ describe('Escrow lib', () => {
         });
 
         it('check balance buyer after', () => {
-            return escrow.balanceOf(buyer)
-                .should.eventually.include({amount: assetPrice});
+            return bsTokenFrontend.balanceOfAsync(buyer)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(assetPrice)));
         });
 
         it('check balance contract after', () => {
-            return escrow.balanceOf(escrow.contract.address)
-                .should.eventually.include({amount: 0});
+            return bsTokenFrontend.balanceOfAsync(escrow.contract.address)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(0)));
         });
 
         it('check balance seller after', () => {
-            return escrow.balanceOf(seller)
-                .should.eventually.include({amount: assetPrice});
+            return bsTokenFrontend.balanceOfAsync(seller)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(assetPrice)));
         });
 
         it('check escrow state after', () => {
@@ -362,7 +351,7 @@ describe('Escrow lib', () => {
         });
 
         it('add cash to buyer', () => {
-            return bsBanking.cashInAsync(buyer, assetPrice, { from: admin, gas: gas});
+            return bsTokenBanking.cashInAsync(buyer, assetPrice, { from: admin, gas: gas});
         });
 
         it('create another escrow', () => {
@@ -387,18 +376,18 @@ describe('Escrow lib', () => {
         });
 
         it('check balance buyer after', () => {
-            return escrow.balanceOf(buyer)
-                .should.eventually.include({amount: assetPrice});
+            return bsTokenFrontend.balanceOfAsync(buyer)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(assetPrice)));
         });
 
         it('check balance contract after', () => {
-            return escrow.balanceOf(escrow.contract.address)
-                .should.eventually.include({amount: 0});
+            return bsTokenFrontend.balanceOfAsync(escrow.contract.address)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(0)));
         });
 
         it('check balance seller after', () => {
-            return escrow.balanceOf(seller)
-                .should.eventually.include({amount: assetPrice * 2});
+            return bsTokenFrontend.balanceOfAsync(seller)
+                .should.eventually.satisfy(balance => balance.equals(new BigNumber(assetPrice * 2)));
         });
 
         it('check escrow state after', () => {
