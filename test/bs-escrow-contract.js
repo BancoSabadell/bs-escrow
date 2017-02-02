@@ -1,9 +1,9 @@
 'use strict';
 
-const Deployer = require('smart-contract-deployer');
-const fs = require('fs');
 const TestRPC = require('ethereumjs-testrpc');
 const Web3 = require('web3');
+const BSTokenData = require('bs-token-data');
+const BSTokenBanking = require('bs-token-banking');
 const BSToken = require('bs-token');
 const Escrow = require('../src/lib');
 const Promise = require('bluebird');
@@ -39,139 +39,69 @@ const web3 = new Web3(provider);
 Promise.promisifyAll(web3.eth);
 Promise.promisifyAll(web3.personal);
 
-describe('escrow', function () {
+describe('Escrow contract', function () {
     const gas = 3000000;
     const assetId1 = '1';
     const assetId2 = '2';
     const assetId3 = '3';
     const assetId4 = '4';
     const assetId5 = '5';
-    const bankAccount = 'g4yr4ruenir4nueicj';
     const assetPrice = 400;
     const admin = '0x5bd47e61fbbf9c8b70372b6f14b068fddbd834ac';
     const buyer = '0x25e940685e0999d4aa7bd629d739c6a04e625761';
     const seller = '0x6128333118cef876bd620da1efa464437470298d';
-    var token = null;
-    var tokenData = null;
-    var bsBanking = null;
+    let bsTokenFrontend = null;
+    let bsTokenBanking = null;
+    let bsTokenData = null;
 
     var escrow = null;
 
     before(function() {
         this.timeout(60000);
 
-        return BSToken.deploy(web3, admin, admin, gas)
-            .then(deployment => {
-                token = deployment.bsTokenFrontend;
-                tokenData = deployment.bsTokenData;
-                bsBanking = deployment.bsBanking;
-
-                const contracts = Object.assign(BSToken.contracts, Escrow.contracts);
-                const paramsConstructor = {'Escrow': [token.address]};
-
-                const deployer = new Deployer({
-                    web3: web3,
-                    address: admin,
-                    gas: gas
-                });
-
-                return deployer.deployContracts(contracts, paramsConstructor, ['Escrow']).then(contracts => {
-                    escrow = web3.eth.contract(contracts.Escrow.abi).at(contracts.Escrow.address);
-                    Promise.promisifyAll(escrow);
-                });
-            });
+        return BSTokenData.deployedContract(web3, admin, gas)
+            .then(contract => {
+                bsTokenData = contract;
+                return BSTokenBanking.deployedContract(web3, admin, bsTokenData, gas);
+            })
+            .then((contract) => {
+                bsTokenBanking = contract;
+                return bsTokenData.addMerchantAsync(admin, { from: admin, gas: gas });
+            })
+            .then(() => BSToken.deployedContract(web3, admin, admin, bsTokenData, gas))
+            .then((contract) => {
+                bsTokenFrontend = contract;
+                return Escrow.deployedContract(web3, admin, bsTokenFrontend, gas);
+            })
+            .then((contract) => escrow = contract);
     });
 
     describe('create escrow calling tokens.approveAndCall', () => {
         it('add cash to buyer', () => {
-            return bsBanking.cashInAsync(buyer, assetPrice, { from: admin, gas: gas});
+            return bsTokenBanking.cashInAsync(buyer, assetPrice, { from: admin, gas: gas});
         });
 
         it('check balance buyer', () => {
-            return token.balanceOfAsync(buyer).then(expected => {
+            return bsTokenFrontend.balanceOfAsync(buyer).then(expected => {
                 assert.equal(expected.valueOf(), assetPrice);
             });
         });
 
-        it('should be rejected if receiveApproval is called directly from another account rather than tokens', () => {
-            const promise = escrow.receiveApprovalAsync(buyer, seller, assetId1, assetPrice, {
-                from: buyer,
-                gas: gas
-            });
-
-            return promise.should.eventually.be.rejected
-        });
-
-        it('freeze account', () => {
-            return token.freezeAccountAsync(buyer, true, {
-                from: admin,
-                gas: gas
-            });
-        });
-
-        it('should be rejected if the account is frozen', () => {
-            const promise = token.approveAndCallAsync(escrow.address, seller, assetId1, assetPrice, {
-                from: buyer,
-                gas: gas
-            });
-
-            return promise.should.eventually.be.rejected
-        });
-
-        it('unfreeze account', () => {
-            return token.freezeAccountAsync(buyer, false, {
-                from: admin,
-                gas: gas
-            });
-        });
-
-        it('start emergency', () => {
-            return token.startEmergencyAsync({
-                from: admin,
-                gas: gas
-            });
-        });
-
-        it('should be rejected if stopInEmergency', () => {
-            const promise = token.approveAndCallAsync(escrow.address, seller, assetId1, assetPrice, {
-                from: buyer,
-                gas: gas
-            });
-
-            return promise.should.eventually.be.rejected
-        });
-
-        it('stop emergency', () => {
-            return token.stopEmergencyAsync({
-                from: admin,
-                gas: gas
-            });
-        });
-
-        it('should be rejected if buyer and seller are both the same', () => {
-            const promise = token.approveAndCallAsync(escrow.address, buyer, assetId1, assetPrice, {
-                from: buyer,
-                gas: gas
-            });
-
-            return promise.should.eventually.be.rejected
-        });
-
         it('should be fulfilled', () => {
-            return token.approveAndCallAsync(escrow.address, seller, assetId1, assetPrice, {
+            return bsTokenFrontend.approveAndCallAsync(escrow.address, seller, assetId1, assetPrice, {
                 from: buyer,
                 gas: gas
             });
         });
 
         it('check balance buyer', () => {
-            return token.balanceOfAsync(buyer).then(expected => {
+            return bsTokenFrontend.balanceOfAsync(buyer).then(expected => {
                 assert.equal(expected.valueOf(), 0);
             });
         });
 
         it('check balance contract', () => {
-            return token.balanceOfAsync(escrow.address).then(expected => {
+            return bsTokenFrontend.balanceOfAsync(escrow.address).then(expected => {
                 assert.equal(expected.valueOf(), assetPrice);
             });
         });
@@ -186,33 +116,12 @@ describe('escrow', function () {
         });
 
         it('add cash to buyer', () => {
-            return bsBanking.cashInAsync(buyer, assetPrice, { from: admin, gas: gas});
+            return bsTokenBanking.cashInAsync(buyer, assetPrice, { from: admin, gas: gas});
         });
 
         it('check balance buyer', () => {
-            return token.balanceOfAsync(buyer).then(expected => {
+            return bsTokenFrontend.balanceOfAsync(buyer).then(expected => {
                 assert.equal(expected.valueOf(), assetPrice);
-            });
-        });
-
-        it('should be rejected if the assetId already exists', () => {
-            const promise = token.approveAndCallAsync(escrow.address, seller, assetId1, assetPrice, {
-                from: buyer,
-                gas: gas
-            });
-            return promise.should.eventually.be.rejected
-        });
-
-        it('cashOut buyer', () => {
-            return token.cashOutAsync(assetPrice, bankAccount, {
-                from: buyer,
-                gas: gas
-            });
-        });
-
-        it('check balance buyer', () => {
-            return token.balanceOfAsync(buyer).then(expected => {
-                assert.equal(expected.valueOf(), 0);
             });
         });
     });
@@ -244,19 +153,19 @@ describe('escrow', function () {
         });
 
         it('check balance buyer after', () => {
-            return token.balanceOfAsync(buyer).then(expected => {
-                assert.equal(expected.valueOf(), 0);
+            return bsTokenFrontend.balanceOfAsync(buyer).then(expected => {
+                assert.equal(expected.valueOf(), assetPrice);
             });
         });
 
         it('check balance seller after', () => {
-            return token.balanceOfAsync(seller).then(expected => {
+            return bsTokenFrontend.balanceOfAsync(seller).then(expected => {
                 assert.equal(expected.valueOf(), 0);
             });
         });
 
         it('check balance contract after', () => {
-            return token.balanceOfAsync(escrow.address).then(expected => {
+            return bsTokenFrontend.balanceOfAsync(escrow.address).then(expected => {
                 assert.equal(expected.valueOf(), assetPrice);
             });
         });
@@ -303,7 +212,7 @@ describe('escrow', function () {
         });
 
         it('start emergency', () => {
-            return token.startEmergencyAsync({
+            return bsTokenFrontend.startEmergencyAsync({
                 from: admin,
                 gas: gas
             });
@@ -318,7 +227,7 @@ describe('escrow', function () {
         });
 
         it('stop emergency', () => {
-            return token.stopEmergencyAsync({
+            return bsTokenFrontend.stopEmergencyAsync({
                 from: admin,
                 gas: gas
             });
@@ -329,19 +238,19 @@ describe('escrow', function () {
         });
 
         it('check balance buyer after', () => {
-            return token.balanceOfAsync(buyer).then(expected => {
-                assert.equal(expected.valueOf(), assetPrice);
+            return bsTokenFrontend.balanceOfAsync(buyer).then(expected => {
+                assert.equal(expected.valueOf(), assetPrice * 2);
             });
         });
 
         it('check balance seller after', () => {
-            return token.balanceOfAsync(seller).then(expected => {
+            return bsTokenFrontend.balanceOfAsync(seller).then(expected => {
                 assert.equal(expected.valueOf(), 0);
             });
         });
 
         it('check balance contract after', () => {
-            return token.balanceOfAsync(escrow.address).then(expected => {
+            return bsTokenFrontend.balanceOfAsync(escrow.address).then(expected => {
                 assert.equal(expected.valueOf(), 0);
             });
         });
@@ -365,7 +274,7 @@ describe('escrow', function () {
 
     describe('cancelEscrowProposal finish with arbitration', () => {
         it('create another escrow', () => {
-            return token.approveAndCallAsync(escrow.address, seller, assetId2, assetPrice, {
+            return bsTokenFrontend.approveAndCallAsync(escrow.address, seller, assetId2, assetPrice, {
                 from: buyer,
                 gas: gas
             });
@@ -384,19 +293,19 @@ describe('escrow', function () {
         });
 
         it('check balance buyer after', () => {
-            return token.balanceOfAsync(buyer).then(expected => {
-                assert.equal(expected.valueOf(), 0);
+            return bsTokenFrontend.balanceOfAsync(buyer).then(expected => {
+                assert.equal(expected.valueOf(), assetPrice);
             });
         });
 
         it('check balance seller after', () => {
-            return token.balanceOfAsync(seller).then(expected => {
+            return bsTokenFrontend.balanceOfAsync(seller).then(expected => {
                 assert.equal(expected.valueOf(), 0);
             });
         });
 
         it('check balance contract after', () => {
-            return token.balanceOfAsync(escrow.address).then(expected => {
+            return bsTokenFrontend.balanceOfAsync(escrow.address).then(expected => {
                 assert.equal(expected.valueOf(), assetPrice);
             });
         });
@@ -441,7 +350,7 @@ describe('escrow', function () {
         });
 
         it('start emergency', () => {
-            return token.startEmergencyAsync({
+            return bsTokenFrontend.startEmergencyAsync({
                 from: admin,
                 gas: gas
             });
@@ -453,7 +362,7 @@ describe('escrow', function () {
         });
 
         it('stop emergency', () => {
-            return token.stopEmergencyAsync({
+            return bsTokenFrontend.stopEmergencyAsync({
                 from: admin,
                 gas: gas
             });
@@ -464,19 +373,19 @@ describe('escrow', function () {
         });
 
         it('check balance buyer after', () => {
-            return token.balanceOfAsync(buyer).then(expected => {
-                assert.equal(expected.valueOf(), assetPrice);
+            return bsTokenFrontend.balanceOfAsync(buyer).then(expected => {
+                assert.equal(expected.valueOf(), assetPrice * 2);
             });
         });
 
         it('check balance seller after', () => {
-            return token.balanceOfAsync(seller).then(expected => {
+            return bsTokenFrontend.balanceOfAsync(seller).then(expected => {
                 assert.equal(expected.valueOf(), 0);
             });
         });
 
         it('check balance contract after', () => {
-            return token.balanceOfAsync(escrow.address).then(expected => {
+            return bsTokenFrontend.balanceOfAsync(escrow.address).then(expected => {
                 assert.equal(expected.valueOf(), 0);
             });
         });
@@ -504,7 +413,7 @@ describe('escrow', function () {
         });
 
         it('create another escrow', () => {
-            return token.approveAndCallAsync(escrow.address, seller, assetId3, assetPrice, {
+            return bsTokenFrontend.approveAndCallAsync(escrow.address, seller, assetId3, assetPrice, {
                 from: buyer,
                 gas: gas
             });
@@ -519,7 +428,7 @@ describe('escrow', function () {
         });
 
         it('start emergency', () => {
-            return token.startEmergencyAsync({
+            return bsTokenFrontend.startEmergencyAsync({
                 from: admin,
                 gas: gas
             });
@@ -531,7 +440,7 @@ describe('escrow', function () {
         });
 
         it('stop emergency', () => {
-            return token.stopEmergencyAsync({
+            return bsTokenFrontend.stopEmergencyAsync({
                 from: admin,
                 gas: gas
             });
@@ -542,19 +451,19 @@ describe('escrow', function () {
         });
 
         it('check balance buyer after', () => {
-            return token.balanceOfAsync(buyer).then(expected => {
-                assert.equal(expected.valueOf(), assetPrice);
+            return bsTokenFrontend.balanceOfAsync(buyer).then(expected => {
+                assert.equal(expected.valueOf(), assetPrice * 2);
             });
         });
 
         it('check balance seller after', () => {
-            return token.balanceOfAsync(seller).then(expected => {
+            return bsTokenFrontend.balanceOfAsync(seller).then(expected => {
                 assert.equal(expected.valueOf(), 0);
             });
         });
 
         it('check balance contract after', () => {
-            return token.balanceOfAsync(escrow.address).then(expected => {
+            return bsTokenFrontend.balanceOfAsync(escrow.address).then(expected => {
                 assert.equal(expected.valueOf(), 0);
             });
         });
@@ -579,7 +488,7 @@ describe('escrow', function () {
         });
 
         it('create another escrow', () => {
-            return token.approveAndCallAsync(escrow.address, seller, assetId4, assetPrice, {
+            return bsTokenFrontend.approveAndCallAsync(escrow.address, seller, assetId4, assetPrice, {
                 from: buyer,
                 gas: gas
             });
@@ -594,7 +503,7 @@ describe('escrow', function () {
         });
 
         it('start emergency', () => {
-            return token.startEmergencyAsync({
+            return bsTokenFrontend.startEmergencyAsync({
                 from: admin,
                 gas: gas
             });
@@ -606,7 +515,7 @@ describe('escrow', function () {
         });
 
         it('stop emergency', () => {
-            return token.stopEmergencyAsync({
+            return bsTokenFrontend.stopEmergencyAsync({
                 from: admin,
                 gas: gas
             });
@@ -626,19 +535,19 @@ describe('escrow', function () {
         });
 
         it('check balance buyer after', () => {
-            return token.balanceOfAsync(buyer).then(expected => {
-                assert.equal(expected.valueOf(), 0);
+            return bsTokenFrontend.balanceOfAsync(buyer).then(expected => {
+                assert.equal(expected.valueOf(), assetPrice);
             });
         });
 
         it('check balance seller after', () => {
-            return token.balanceOfAsync(seller).then(expected => {
+            return bsTokenFrontend.balanceOfAsync(seller).then(expected => {
                 assert.equal(expected.valueOf(), assetPrice);
             });
         });
 
         it('check balance contract after', () => {
-            return token.balanceOfAsync(escrow.address).then(expected => {
+            return bsTokenFrontend.balanceOfAsync(escrow.address).then(expected => {
                 assert.equal(expected.valueOf(), 0);
             });
         });
@@ -657,11 +566,11 @@ describe('escrow', function () {
         });
 
         it('add cash to buyer', () => {
-            return bsBanking.cashInAsync(buyer, assetPrice, { from: admin, gas: gas});
+            return bsTokenBanking.cashInAsync(buyer, assetPrice, { from: admin, gas: gas});
         });
 
         it('create another escrow', () => {
-            return token.approveAndCallAsync(escrow.address, seller, assetId5, assetPrice, {
+            return bsTokenFrontend.approveAndCallAsync(escrow.address, seller, assetId5, assetPrice, {
                 from: buyer,
                 gas: gas
             });
@@ -697,7 +606,7 @@ describe('escrow', function () {
         });
 
         it('start emergency', () => {
-            return token.startEmergencyAsync({
+            return bsTokenFrontend.startEmergencyAsync({
                 from: admin,
                 gas: gas
             });
@@ -709,7 +618,7 @@ describe('escrow', function () {
         });
 
         it('stop emergency', () => {
-            return token.stopEmergencyAsync({
+            return bsTokenFrontend.stopEmergencyAsync({
                 from: admin,
                 gas: gas
             });
@@ -729,19 +638,19 @@ describe('escrow', function () {
         });
 
         it('check balance buyer after', () => {
-            return token.balanceOfAsync(buyer).then(expected => {
-                assert.equal(expected.valueOf(), 0);
+            return bsTokenFrontend.balanceOfAsync(buyer).then(expected => {
+                assert.equal(expected.valueOf(), assetPrice);
             });
         });
 
         it('check balance seller after', () => {
-            return token.balanceOfAsync(seller).then(expected => {
+            return bsTokenFrontend.balanceOfAsync(seller).then(expected => {
                 assert.equal(expected.valueOf(), assetPrice * 2);
             });
         });
 
         it('check balance contract after', () => {
-            return token.balanceOfAsync(escrow.address).then(expected => {
+            return bsTokenFrontend.balanceOfAsync(escrow.address).then(expected => {
                 assert.equal(expected.valueOf(), 0);
             });
         });
@@ -756,7 +665,7 @@ describe('escrow', function () {
 
     describe('transferOwnership', () => {
         it('should be rejected if the account is not the owner', () => {
-            const promise = token.transferOwnershipAsync(buyer, {
+            const promise = bsTokenFrontend.transferOwnershipAsync(buyer, {
                 from: seller,
                 gas: gas
             });
@@ -765,20 +674,20 @@ describe('escrow', function () {
         });
 
         it('check owner remains the same', () => {
-            return token.ownerAsync().then(expected => {
+            return bsTokenFrontend.ownerAsync().then(expected => {
                 assert.equal(expected.valueOf(), admin);
             });
         });
 
         it('should be fulfilled', () => {
-            return token.transferOwnershipAsync(buyer, {
+            return bsTokenFrontend.transferOwnershipAsync(buyer, {
                 from: admin,
                 gas: gas
             });
         });
 
         it('check owner has been updated', () => {
-            return token.ownerAsync().then(expected => {
+            return bsTokenFrontend.ownerAsync().then(expected => {
                 assert.equal(expected.valueOf(), buyer);
             });
         });
