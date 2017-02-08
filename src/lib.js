@@ -164,7 +164,9 @@ module.exports.contracts = Object.assign(BSToken.contracts, {
     'Escrow.sol': fs.readFileSync(path.join(__dirname, '../contracts/Escrow.sol'), 'utf8')
 });
 
-module.exports.deployedContract = function (web3, admin, bsToken, gas) {
-    const deployer = new Deployer(web3, {sources: Escrow.contracts}, 0);
-    return deployer.deploy('Escrow', [bsToken.address], { from: admin, gas: gas });
+module.exports.deployedContract = function deployedContract(web3, admin, bsToken, merchant,
+                                                            permissionManager, gas) {
+    const deployer = new Deployer(web3, { sources: Escrow.contracts }, 0);
+    return deployer
+        .deploy('Escrow', [bsToken.address, merchant, permissionManager.address], { from: admin, gas });
 };

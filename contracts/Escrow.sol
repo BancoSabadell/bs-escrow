@@ -1,16 +1,17 @@
-import "Ownable.sol";
+import "AuthStoppable.sol";
 import "BSTokenFrontend.sol";
 import "TokenRecipient.sol";
 
 pragma solidity ^0.4.2;
 
-contract Escrow is Stoppable, TokenRecipient {
+contract Escrow is AuthStoppable, TokenRecipient {
     BSTokenFrontend token;
-    address bsTokenAddress;
+    address bsTokenFrontendAddress;
 
-    function Escrow(address someBsTokenAddress){
-        bsTokenAddress = someBsTokenAddress;
-        token = BSTokenFrontend(bsTokenAddress);
+    function Escrow(address theBSTokenFrontendAddress, address theMerchant, address permissionManagerAddress){
+        bsTokenFrontendAddress = theBSTokenFrontendAddress;
+        token = BSTokenFrontend(bsTokenFrontendAddress);
+        super.init(theMerchant, permissionManagerAddress);
     }
 
     struct EscrowData {
@@ -30,7 +31,7 @@ contract Escrow is Stoppable, TokenRecipient {
     }
 
     function cancelEscrowArbitrating(string assetId)
-        onlyOwner escrowExists(assetId) escrowStateSellerDisagreeProposalCancellation(assetId) {
+        onlyAdminOrMerchant escrowExists(assetId) escrowStateSellerDisagreeProposalCancellation(assetId) {
         doOnCancelEscrow(assetId);
     }
 
@@ -56,7 +57,7 @@ contract Escrow is Stoppable, TokenRecipient {
     }
 
     function fulfillEscrowArbitrating(string assetId)
-        onlyOwner escrowExists(assetId) escrowStateSellerDisagreeProposalCancellation(assetId) {
+        onlyAdminOrMerchant escrowExists(assetId) escrowStateSellerDisagreeProposalCancellation(assetId) {
         doOnFulfillEscrow(assetId);
     }
 
@@ -138,7 +139,7 @@ contract Escrow is Stoppable, TokenRecipient {
     }
 
     modifier onlyBSToken() {
-        if (msg.sender != bsTokenAddress)
+        if (msg.sender != bsTokenFrontendAddress)
             throw;
         _;
     }
