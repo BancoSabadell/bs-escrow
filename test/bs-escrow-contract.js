@@ -6,6 +6,7 @@ const BSTokenData = require('bs-token-data');
 const BSTokenBanking = require('bs-token-banking');
 const BSToken = require('bs-token');
 const Escrow = require('../src/lib');
+const GTPermissionManager = require('gt-permission-manager');
 const Promise = require('bluebird');
 const chai = require('chai');
 const chaiAsPromised = require('chai-as-promised');
@@ -50,28 +51,32 @@ describe('Escrow contract', function () {
     const admin = '0x5bd47e61fbbf9c8b70372b6f14b068fddbd834ac';
     const buyer = '0x25e940685e0999d4aa7bd629d739c6a04e625761';
     const seller = '0x6128333118cef876bd620da1efa464437470298d';
-    let bsTokenFrontend = null;
-    let bsTokenBanking = null;
-    let bsTokenData = null;
+    let permissionManager;
+    let bsTokenFrontend;
+    let bsTokenBanking;
+    let bsTokenData;
 
-    var escrow = null;
+    var escrow;
 
     before(function() {
         this.timeout(60000);
-
-        return BSTokenData.deployedContract(web3, admin, gas)
+        return GTPermissionManager.deployedContract(web3, admin, gas)
+            .then((contract) => {
+                permissionManager = contract;
+                return BSTokenData.deployedContract(web3, admin, permissionManager, gas);
+            })
             .then(contract => {
                 bsTokenData = contract;
-                return BSTokenBanking.deployedContract(web3, admin, bsTokenData, gas);
+                return BSTokenBanking.deployedContract(web3, admin, bsTokenData, permissionManager, gas);
             })
             .then((contract) => {
                 bsTokenBanking = contract;
-                return bsTokenData.addMerchantAsync(admin, { from: admin, gas: gas });
+                return bsTokenData.addLogicAsync(admin, { from: admin, gas: gas });
             })
-            .then(() => BSToken.deployedContract(web3, admin, admin, bsTokenData, gas))
+            .then(() => BSToken.deployedContract(web3, admin, admin, bsTokenData, permissionManager, gas))
             .then((contract) => {
                 bsTokenFrontend = contract;
-                return Escrow.deployedContract(web3, admin, bsTokenFrontend, gas);
+                return Escrow.deployedContract(web3, admin, bsTokenFrontend, admin, permissionManager, gas);
             })
             .then((contract) => escrow = contract);
     });
@@ -660,36 +665,6 @@ describe('Escrow contract', function () {
                 from: admin,
                 gas: gas
             }).should.eventually.be.rejected;
-        });
-    });
-
-    describe('transferOwnership', () => {
-        it('should be rejected if the account is not the owner', () => {
-            const promise = bsTokenFrontend.transferOwnershipAsync(buyer, {
-                from: seller,
-                gas: gas
-            });
-
-            return promise.should.eventually.be.rejected
-        });
-
-        it('check owner remains the same', () => {
-            return bsTokenFrontend.ownerAsync().then(expected => {
-                assert.equal(expected.valueOf(), admin);
-            });
-        });
-
-        it('should be fulfilled', () => {
-            return bsTokenFrontend.transferOwnershipAsync(buyer, {
-                from: admin,
-                gas: gas
-            });
-        });
-
-        it('check owner has been updated', () => {
-            return bsTokenFrontend.ownerAsync().then(expected => {
-                assert.equal(expected.valueOf(), buyer);
-            });
         });
     });
 });
