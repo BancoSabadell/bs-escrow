@@ -1,6 +1,6 @@
 {
   "name": "bs-escrow",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A js wrapper around BSToken contract to simplify its consumption",
   "main": "index.js",
   "scripts": {
@@ -27,7 +27,9 @@
   },
   "homepage": "https://github.com/BancoSabadell/bs-escrow#readme",
   "dependencies": {
-    "bluebird": "^3.4.6"
+    "bluebird": "^3.4.6",
+    "bs-token": "^1.0.4",
+    "contract-deployer": "^1.0.0"
   },
   "devDependencies": {
     "bignumber.js": "^4.0.0",
@@ -39,10 +41,9 @@
     "mocha-eslint": "^3.0.1",
     "eslint-config-airbnb-base": "^11.0.0",
     "eslint-plugin-import": "^2.2.0",
-    "contract-deployer": "^1.0.0",
-    "bs-token-data": "^1.0.0",
-    "bs-token-banking": "^1.0.3",
-    "bs-token": "^1.0.3"
+    "bs-token-data": "^1.0.3",
+    "bs-token-banking": "^1.0.6",
+    "gt-permission-manager": "^1.0.3"
   },
   "eslintConfig": {
     "env": {
