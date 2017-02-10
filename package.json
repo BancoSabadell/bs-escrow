@@ -1,6 +1,6 @@
 {
   "name": "bs-escrow",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A js wrapper around BSToken contract to simplify its consumption",
   "main": "index.js",
   "scripts": {
