@@ -189,7 +189,7 @@ module.exports.deployContract = function deployContract(web3, admin, bsToken, me
         });
 };
 
-module.exports.deployedContract = function deployedContract(web3, admin, abi, address) {
+module.exports.deployedContract = function deployedContract(web3, abi, address) {
     const bsEscrow = web3.eth.contract(abi).at(address);
     Promise.promisifyAll(bsEscrow);
     checkContract(bsEscrow);

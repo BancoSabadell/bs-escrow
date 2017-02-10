@@ -45,7 +45,7 @@ describe('BsTokenFrontend deployment', function () {
 
     describe('deployed', () => {
         it('should be fulfilled', () => {
-            return Escrow.deployedContract(web3, admin, bsEscrow.abi, bsEscrow.address);
+            return Escrow.deployedContract(web3, bsEscrow.abi, bsEscrow.address);
         });
     });
 });
