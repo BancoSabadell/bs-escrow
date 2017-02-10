@@ -160,13 +160,38 @@ class Escrow {
 
 module.exports = Escrow;
 
-module.exports.contracts = Object.assign(BSToken.contracts, {
-    'Escrow.sol': fs.readFileSync(path.join(__dirname, '../contracts/Escrow.sol'), 'utf8')
-});
+function checkContract(bsEscrow) {
+    if (!bsEscrow.abi) {
+        throw new Error('abi must not be null');
+    }
 
-module.exports.deployedContract = function deployedContract(web3, admin, bsToken, merchant,
+    if (!bsEscrow.address) {
+        throw new Error('address must not be null');
+    }
+
+    if (typeof bsEscrow.validateCancelEscrowProposalAsync === 'undefined') {
+        throw new Error('contract has not been properly deployed');
+    }
+}
+
+module.exports.contracts = Object.freeze(Object.assign({}, BSToken.contracts, {
+    'Escrow.sol': fs.readFileSync(path.join(__dirname, '../contracts/Escrow.sol'), 'utf8')
+}));
+
+module.exports.deployContract = function deployContract(web3, admin, bsToken, merchant,
                                                             permissionManager, gas) {
     const deployer = new Deployer(web3, { sources: Escrow.contracts }, 0);
     return deployer
-        .deploy('Escrow', [bsToken.address, merchant, permissionManager.address], { from: admin, gas });
+        .deploy('Escrow', [bsToken.address, merchant, permissionManager.address], { from: admin, gas })
+        .then((bsEscrow) => {
+            checkContract(bsEscrow);
+            return bsEscrow;
+        });
+};
+
+module.exports.deployedContract = function deployedContract(web3, admin, abi, address) {
+    const bsEscrow = web3.eth.contract(abi).at(address);
+    Promise.promisifyAll(bsEscrow);
+    checkContract(bsEscrow);
+    return Promise.resolve(bsEscrow);
 };

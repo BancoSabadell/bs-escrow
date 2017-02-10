@@ -60,23 +60,22 @@ describe('Escrow contract', function () {
 
     before(function() {
         this.timeout(60000);
-        return GTPermissionManager.deployedContract(web3, admin, gas)
+        return GTPermissionManager.deployContract(web3, admin, gas)
             .then((contract) => {
                 permissionManager = contract;
-                return BSTokenData.deployedContract(web3, admin, permissionManager, gas);
+                return BSTokenData.deployContract(web3, admin, permissionManager, gas);
             })
             .then(contract => {
                 bsTokenData = contract;
-                return BSTokenBanking.deployedContract(web3, admin, bsTokenData, permissionManager, gas);
+                return BSTokenBanking.deployContract(web3, admin, bsTokenData, permissionManager, gas);
             })
             .then((contract) => {
                 bsTokenBanking = contract;
-                return bsTokenData.addLogicAsync(admin, { from: admin, gas: gas });
+                return BSToken.deployContract(web3, admin, admin, bsTokenData, permissionManager, gas);
             })
-            .then(() => BSToken.deployedContract(web3, admin, admin, bsTokenData, permissionManager, gas))
             .then((contract) => {
                 bsTokenFrontend = contract;
-                return Escrow.deployedContract(web3, admin, bsTokenFrontend, admin, permissionManager, gas);
+                return Escrow.deployContract(web3, admin, bsTokenFrontend, admin, permissionManager, gas);
             })
             .then((contract) => escrow = contract);
     });
