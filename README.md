@@ -1,4 +1,4 @@
-# bs-token
+# bs-escrow
 
 ### A js wrapper around BSEscrow contract to simplify its consumption.
 
