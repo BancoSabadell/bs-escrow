@@ -18,7 +18,7 @@ Import BSEscrow module and create an instance passing by constructor a Web3 inst
 
 ```javascript
 const BSEscrow = require('bs-escrow');
-escrow = new BSEscrow(web3,  {
+const escrow = new BSEscrow(web3,  {
     admin: { account: admin, password: password },
     bsTokenLib : bsTokenLib,
     contractEscrow: contractEscrow
